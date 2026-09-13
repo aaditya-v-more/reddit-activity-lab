@@ -1,5 +1,7 @@
 # Methodology
 
+The original six-week study and the current on-demand dashboard share the statistical engine below. The on-demand adapter acquires complete local-day partitions for arbitrary covered communities and caches only anonymous aggregates and redacted post evidence. The current local day is excluded. Each day retains its actual retrieval timestamp; cached dates may have different observation times. The last three completed dates expire after 15 minutes and older dates after seven days, with manual refresh available. See [hosting and freshness](hosting.md) for exact operational limits. These refresh checks do not measure audience presence.
+
 ## Populations and intervals
 
 Acquisition uses half-open UTC intervals `[start, end)`. The website accepts inclusive local calendar dates and excludes days whose edges fall outside acquisition. IANA timezones implement IST's half-hour offset and DST transitions. Explicit zero-hour buckets represent no captured activity within an acquired interval; missing acquisition is unavailable, not zero.

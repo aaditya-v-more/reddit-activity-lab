@@ -15,10 +15,10 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23141d32'/%3E%3Cpath d='M7 23V16h4v7zm7 0V8h4v15zm7 0V12h4v11z' fill='%23ff693b'/%3E%3C/svg%3E"
     />
-    <link rel="stylesheet" href="/style.css?v=1.1.0" />
-    <script type="module" src="/app.js?v=1.1.0"></script>
+    <link rel="stylesheet" href="/style.css?v=2.0.0" />
+    <script type="module" src="/app.js?v=2.0.0"></script>
   </head>
-  <body>
+  <body data-local-study="true">
     <a class="skip" href="#main">Skip to analysis</a>
     <div class="app-shell">
       <aside class="sidebar">
@@ -41,7 +41,7 @@
           </button>
         </nav>
         <div class="sidebar-note">
-          <span class="archive-label">ARCHIVE STUDY</span>
+          <span class="archive-label">SOURCE-CONNECTED RESEARCH</span>
           <p>Real activity.<br />Measured uncertainty.</p>
           <small
             >Powered by Arctic Shift<br />Evidence for your next
@@ -101,9 +101,17 @@
           </div>
           <form id="filters" class="filters">
             <label
-              >Community<select id="community" aria-label="Community">
-                <option value="ollama">r/ollama</option>
-              </select></label
+              >Subreddit<input
+                id="community"
+                list="community-options"
+                value="ollama"
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="community-help" />
+              <datalist id="community-options">
+                <option value="ClaudeAI"></option>
+                <option value="ClaudeCode"></option>
+                <option value="ollama"></option></datalist></label
             ><label
               >From<input type="date" id="start" value="2026-07-28" /></label
             ><span class="date-dash" aria-hidden="true">—</span
@@ -122,13 +130,46 @@
               </select></label
             ><button class="button primary" type="submit">Apply filters</button>
           </form>
+          <div class="archive-controls">
+            <p id="community-help">
+              Enter any subreddit covered by Arctic Shift.
+            </p>
+            <div class="archive-actions">
+              <label
+                >Source
+                <select id="source-mode">
+                  <option value="archive">Current archive</option>
+                </select></label
+              >
+              <button class="button quiet compact" data-days="28">
+                Last 28 days
+              </button>
+              <button class="button quiet compact" data-days="7">7 days</button>
+              <button class="button quiet compact" data-days="1">1 day</button>
+              <button class="button quiet compact" id="refresh-archive">
+                Refresh data
+              </button>
+              <label class="auto-refresh"
+                ><input id="auto-refresh" type="checkbox" checked />
+                Auto-refresh while open</label
+              >
+            </div>
+          </div>
+          <section
+            id="freshness"
+            class="freshness"
+            aria-label="Archive freshness"
+            aria-live="polite"
+          >
+            Checking source freshness…
+          </section>
           <div
             id="status"
             class="coverage-note"
             role="status"
             aria-live="polite"
           >
-            Loading the verified archive…
+            Opening the selected archive interval…
           </div>
           <div id="content" aria-busy="true">
             <div class="loading-state">

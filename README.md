@@ -1,121 +1,117 @@
 # Reddit Activity Lab
 
-A reproducible Reddit analytics workbench for deciding **where to post, when to test, and how much to trust the evidence**. Built by **[Aaditya More](https://www.linkedin.com/in/aadityavmore/)**.
+Explore **when a community is active, how crowded posting windows are, and whether timing patterns survive a later-period check**. Built by [Aaditya More](https://www.linkedin.com/in/aadityavmore/).
 
-This public repository contains the application, acquisition pipeline, tests, methodology, and aggregate study findings. Reddit records, dashboard data exports, personal-post notes, and deployment configuration remain local and are excluded from the public Git history. Acquire a bounded dataset to run your own dashboard; no demo data is presented as evidence.
+The dashboard now accepts **any subreddit covered by Arctic Shift**, with on-demand acquisition, source freshness checks, and a bounded browser cache. The deployment contains only static application code: no Reddit corpus, database server, Vercel Functions, paid storage, or cron jobs.
 
-The delivered study uses actual Arctic Shift posts and comments from r/ClaudeAI, r/ClaudeCode, and r/ollama. Acquisition spans **27 July–6 September 2026 UTC** (7 September exclusive). The default dashboard selects **28 July–5 September**, 40 complete local days, with **Asia/Kolkata** as the default timezone.
-
-The extract contains **263,652 unique records** and occupies **19.46 MB compressed** locally. Twenty-two automated tests pass; 12 independent reverse-order source spot checks match exact IDs.
-
-Read the generated [initial findings](docs/initial-report.md), [source investigation](docs/sources.md), [methodology](docs/methodology.md), and [verification results](docs/validation.json). No demonstration records are mixed into findings. Synthetic fixtures exist only in tests.
+[Initial six-week findings](docs/initial-report.md) · [Methodology](docs/methodology.md) · [Source investigation](docs/sources.md) · [Hosting and scale](docs/hosting.md)
 
 ## Run locally
 
-Requires Python 3.9+ with system IANA timezone data, Node.js 18+, and curl. There are **no runtime package dependencies or package-install step**.
+Requires Node.js 18+, Python 3.9+, and a modern browser with Web Workers, IndexedDB, Web Crypto, and IANA timezone support. The browser path uses the public Arctic Shift API without a Reddit login. There are no runtime npm dependencies.
 
 ```sh
 git clone https://github.com/aaditya-v-more/reddit-activity-lab.git
 cd reddit-activity-lab
 npm test
-
-# Start with one community and one week; no Reddit login required.
-python3 -m pipeline.acquire --subreddits ollama \
-  --start 2026-08-24 --end 2026-08-31
-python3 -m pipeline.export
 npm run dev
 ```
 
-Open [the local dashboard](http://127.0.0.1:4317). It binds only to loopback. The dashboard reads the exports generated in the ignored `dist/data/` directory. Without exports, it shows an unavailable-data state with setup guidance. Acquisition depends on the source's continued availability; a fresh download can differ from the original study as archive records change.
+Open [localhost:4317](http://127.0.0.1:4317), enter a subreddit, and choose local dates and a timezone. IST is the default. First loads can take minutes; subsequent loads reuse completed days. Use **7 days** or **1 day** for very active communities. Only complete acquisitions become findings.
 
-To reproduce the full study scope:
+## What “any subreddit” and “fresh” mean
 
-```sh
-# Fetch a bounded interval. End is exclusive; dates are interpreted as UTC.
-python3 -m pipeline.acquire --subreddits ClaudeAI ClaudeCode ollama \
-  --start 2026-07-27 --end 2026-09-07
+- Subreddit names are not restricted to the original three. Prefix suggestions use the provider's directory, which can lag behind its record archive; direct name entry also works.
+- Each acquisition is bounded to **93 days, 200,000 records, and 350 requests**. This is access to selected communities and intervals, not a continuously replicated all-Reddit database. Oversized intervals fail visibly and suggest a shorter range.
+- The latest returned post/comment creation times are checked **every 5 minutes while the tab is visible**. These timestamps describe archive freshness, not online users or a complete capture watermark.
+- Analysis checks run every **15 minutes while visible**. The last three completed local dates use a 15-minute cache; older dates expire after seven days. Manual **Refresh data** bypasses the cache. Nothing polls when the site is closed.
+- The current local day is excluded from timing comparisons. Recent posts without a mature second snapshot contribute to activity, but not to performance. Archive delays and outages can prevent prompt updates; there is no guaranteed push notification from the provider.
+- Browser storage holds anonymous day/hour aggregates, redacted public post evidence, and request provenance. It is capped at approximately **40 MB / 180 day entries**, subject to browser eviction. Author names are used transiently in the worker for distinct counts and are not persisted in that cache.
 
-# Normalize cached data again after a normalization change; no network.
-python3 -m pipeline.rebuild
+The interface distinguishes activity, participants, online users, and weekly visitors. Net score is not an exact upvote count. Eligible performance snapshots are **35–40 hours old**, not first-24-hour results. Timing relationships are observational.
 
-# Export only paired, completed post/comment intervals.
-python3 -m pipeline.export
+## Product
 
-# Statistical/timezone tests, offline data audit, reproducible report.
-npm test
-python3 -m pipeline.validate
-node scripts/report.mjs
-
-# Optional: independently re-query 12 bounded intervals in descending order.
-python3 -m pipeline.validate --online
-```
-
-Completed acquisitions are skipped on rerun. Use `--refresh` to deliberately revisit records. Request caches are checksum-verified; identity keys deduplicate overlap. Newer archive observations supersede older ones. A failed acquisition does not produce a completed coverage flag. A saturated same-second page fails visibly instead of silently skipping tied timestamps.
-
-## What the product does
-
-- Switch communities, inclusive local dates, and eight IANA timezones.
-- Compare hourly/day-of-week comments, submissions, and distinct participants.
-- Inspect daily trends, competing submissions, weekly and monthly changes.
-- Compare four-hour submission windows using median net score, median comments, explicit success thresholds, sample sizes, and uncertainty.
-- Select a candidate using the earlier half of the period and inspect its later performance with a frozen threshold.
-- Search, filter, sort, and paginate the actual supporting post records.
-- Inspect source coverage, exclusion reasons, snapshot timestamps, and provenance.
-- Handle unavailable data, empty ranges, sparse samples, invalid dates, and request failures.
-- Expose the same aggregate analysis and filter actions through optional WebMCP tools, with progressive enhancement in browsers that support them.
-
-The product never equates participation with online users, net score with exact upvotes, or archive snapshots with first-24-hour performance. No Reddit credentials, browser-session tokens, or private views are required.
+- Subreddit discovery, inclusive local date filters, and eight IANA timezones.
+- Comment, post, and distinct-participant heatmaps; daily, weekly, and monthly trends.
+- Competition by four-hour submission window, median score, median comments, success thresholds, and sample sizes.
+- Earlier-half candidate selection with a frozen threshold, followed by a later-half comparison and weekly bootstrap uncertainty.
+- Searchable supporting posts, snapshot eligibility, archive freshness, per-day retrieval dates, and downloadable request hashes.
+- Loading progress, cancellation, retry, explicit limits, unavailable data, and browser-cache controls.
+- LinkedIn attribution and a GitHub source link, including in the mobile footer.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  API[Arctic Shift public API] --> A[Bounded acquisition adapter]
-  A --> R[Ignored gzip response cache + SHA-256 ledger]
-  R --> N[Normalization and identity deduplication]
-  N --> DB[(Local SQLite)]
-  DB --> E[Timezone aggregates + redacted public post evidence]
-  E --> SITE[Local or privately hosted static dashboard]
-  E --> REPORT[Shared analysis engine and reproducible report]
+  API[Arctic Shift public API] --> W[Browser acquisition worker]
+  W --> C[Bounded local day cache]
+  C --> JS[Shared statistical engine]
+  JS --> UI[Static interactive dashboard]
+  API --> P[Offline Python adapter]
+  P --> RAW[Ignored gzip cache and SHA ledger]
+  RAW --> DB[(Local SQLite)]
+  DB --> E[Optional saved-study exports]
+  E --> JS
+  E --> R[Reproducible report]
 ```
 
-SQLite is suitable for this bounded dataset, portable across machines, and requires no separate service. Python's `zoneinfo` handles calendar boundaries during aggregation. Native JavaScript modules keep the application lightweight; the identical statistical engine powers the dashboard, report, and automated tests. Static private hosting avoids a database server and keeps author-level participation records off the website.
+The worker requests one page at a time, spaces calls, respects retries, overlaps timestamp boundaries, and deduplicates record IDs using newer-observation precedence. Both post and comment acquisition must finish before a local day's anonymous aggregate enters the cache. Local-day boundaries come from IANA calendar rules, including IST's half-hour offset and DST's repeated/missing hours. Independent date partitions make recent refreshes smaller than a full re-download.
 
-| Layer         | Files                                              | Contract                                                                            |
-| ------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Acquisition   | `pipeline/acquire.py`                              | Public source adapter, bounded cursor traversal, retries, hash ledger               |
-| Normalization | `pipeline/store.py`, `pipeline/rebuild.py`         | Stable `(kind, id)` identity, timestamps, moderation restoration, update precedence |
-| Storage       | ignored `data/reddit.sqlite`, `data/raw/`          | Local provenance and public archive responses                                       |
-| Aggregation   | `pipeline/export.py`                               | Anonymous local date/hour counts and redacted post evidence                         |
-| Analysis      | `dist/analysis.js`                                 | Quantiles, Wilson intervals, temporal split, weekly resampling                      |
-| Product       | `dist/app.js`, `dist/style.css`, `dist/index.html` | Accessible controls, evidence inspection, honest states                             |
-| Verification  | `tests/`, `pipeline/validate.py`                   | Boundary cases, conservation checks, source spot checks                             |
-| Findings      | `scripts/report.mjs`                               | Generated report from the same exported records and engine                          |
+`dist/` is authored source, not disposable build output. `scripts/build.mjs` copies an explicit asset allowlist into `.output/` and excludes saved-study data. The same static output works on Vercel, Cloudflare Pages, or another static host. Archive requests go directly from the visitor's browser to Arctic Shift, so they do not use Vercel function CPU, database storage, or archive-response bandwidth. Provider limits and visitor bandwidth still apply.
 
-`dist/` contains authored static assets, not disposable compilation output. Those assets are tracked; generated `dist/data/` exports are ignored. The acquisition cache, database, credentials, personal-post notes, and hosting configuration are also ignored.
+| Layer                                          | Files                                                                         |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| On-demand acquisition and normalization        | `dist/archive.js`                                                             |
+| Background execution and bounded browser cache | `dist/archive-worker.js`                                                      |
+| Statistics shared by UI, tests, and reports    | `dist/analysis.js`                                                            |
+| Product interface                              | `dist/app.js`, `dist/index.html`, `dist/style.css`                            |
+| Offline acquisition / SQLite / normalization   | `pipeline/`                                                                   |
+| Static deployment allowlist                    | `scripts/build.mjs`, `vercel.json`, `.vercelignore`                           |
+| Tests                                          | `tests/analysis.test.mjs`, `tests/archive.test.mjs`, `tests/test_pipeline.py` |
 
-## Extending the project
+## Offline reproducibility and the original study
 
-Pass additional names to `--subreddits`; the exporter discovers communities in SQLite. Keep each run under 93 days and prefer small scopes. For large-scale work, use the provider's downloadable archives rather than burdening the API. Add timezones to the exporter and browser's supported zone list together, re-export, and run the boundary tests.
+The original study contains **263,652 unique records: 19,507 posts and 244,145 comments** across r/ClaudeAI, r/ClaudeCode, and r/ollama, acquired for **27 July–6 September 2026 UTC**. Its default analysis covers **28 July–5 September**, 40 complete IST days. The compressed cache was 19.46 MB. These historical findings remain separate from new on-demand observations.
 
-A replacement source adapter should call `store.ingest` with records conforming to the normalized fields and record its request URL, raw checksum, fetch time, and explicit completed interval. Map a **score measurement timestamp** to `retrieved_2nd_on` only when the replacement source really measures the displayed outcome at that timestamp; do not relabel an ingestion date. Unknown-age sources can support activity while remaining ineligible for the current fixed-age performance analysis.
+```sh
+# Requires curl; end is exclusive and dates are UTC.
+python3 -m pipeline.acquire --subreddits ClaudeAI ClaudeCode ollama \
+  --start 2026-07-27 --end 2026-09-07
+python3 -m pipeline.export
+python3 -m pipeline.validate
+node scripts/report.mjs
 
-Current limitations: a static export must be regenerated to refresh coverage; the source is incomplete by an unknown amount; only a conservative explicit bot list is excluded; six weeks is a short observation horizon; and topic, moderation, and time-of-day effects are not causally separated. There is no production monitoring or outcome guarantee.
+# Rebuild normalization from checksum-verified cached responses, without network.
+python3 -m pipeline.rebuild
 
-## Privacy and hosting
+# Optional small reverse-order source checks.
+python3 -m pipeline.validate --online
+```
 
-The source repository is public under [aaditya-v-more](https://github.com/aaditya-v-more). The study's hosted dashboard remains private. The public repository does not contain its access configuration or a copy of its data. The local web server requires no credentials and is not exposed on the network.
+After exporting, the local UI offers **Saved six-week study** as a separate source. Hosted builds omit it. Safe reruns skip completed acquisitions, deduplicate overlap, and retain newer snapshots. Failed intervals do not receive completion flags. A fresh acquisition can differ from the original study because archives change.
 
-Participation exports contain only aggregate counts, not usernames, pseudonymous author identifiers, or comment text. Supporting posts include public IDs, visible titles, flairs, outcomes, eligibility decisions, and snapshot timestamps. Removed/deleted titles are suppressed based on archive metadata. These reflect archive state at collection, not continuous removal monitoring.
+The offline source adapter remains replaceable. Map score measurement timestamps only when the source actually supplies them; an ingestion timestamp must not become a supposed fixed-age outcome.
 
-The dataset's redistribution rights were not established; keep acquired records and analytical exports private unless you obtain appropriate permission. Public source availability does not grant rights to Reddit content. See [data policy](docs/data-policy.md).
+## Verification
 
-## Verification without a dataset
+`npm test` runs **30 tests without downloaded records** and one additional integration test when saved exports exist. Tests cover pagination ties, newer snapshots, failure completion flags, moderation restoration, bot/deleted-author handling, distinct unions, IST/DST boundaries, cache freshness, acquisition failure handling, Wilson intervals, weekly resampling, and temporal selection leakage.
 
-`npm test` runs 21 synthetic-fixture tests without network access or downloaded records. One additional integration test runs automatically when local exports exist; otherwise it is explicitly skipped. `python3 -m pipeline.validate` requires an acquired dataset and verifies its cache hashes, identity parity, SQLite integrity, and export privacy. The checked-in verification report records the original study's audit, rather than claiming a fresh acquisition has already been checked.
+The on-demand path was also exercised against actual records from **r/ollama and r/LocalLLaMA** for 10 September 2026 IST, acquiring 242 and 3,744 records respectively. Counts reconcile across posts, heatmaps, and daily totals. The original study's [audit](docs/validation.json) records checksum, identity-parity, and 12 reverse-order source checks. Neither audit proves complete Reddit capture.
+
+## Deployment
+
+```sh
+npm run build
+# Preview only; choose your own account scope when linking.
+vercel link
+vercel deploy
+```
+
+Use the Hobby plan for this personal project. No sub-daily Vercel cron job is configured. The project does not deploy to ChatGPT Sites. See [hosting and free-plan constraints](docs/hosting.md) for the deployment footprint and fallback options.
+
+The GitHub source is public; raw responses, SQLite, `dist/data/`, local deployment configuration, and personal-post notes are ignored. Public source availability does not grant redistribution rights to Reddit content. See [data handling](docs/data-policy.md).
 
 ## Explain it in an interview
 
-The strongest technical decisions are the ones that protect interpretation: overlap-safe pagination, immutable source hashes, later-observation precedence, restoration-aware moderation handling, distinct-author unions, IST/DST boundaries, fixed snapshot-age eligibility, and a temporal check that does not learn its threshold from later outcomes.
-
-Use the measured quantities in [the report](docs/initial-report.md) when discussing scale. Do not claim an improvement in Reddit engagement: no prospective posting experiment has yet been run.
+Discuss the measured 263,652-record study, two independently exercised acquisition paths, eight-timezone analysis, overlap-safe pagination, snapshot-age eligibility, temporal holdout diagnostics, bounded incremental caching, and a static deployment with no server compute. Do not claim improved Reddit engagement: no prospective posting experiment has been completed.

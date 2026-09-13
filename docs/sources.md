@@ -6,12 +6,12 @@ Checked 11 September 2026. Candidate providers were evaluated directly; availabi
 
 Use **Arctic Shift's public API** for a six-week, three-community extract. Direct requests returned real records through 11 September 2026. The full extraction is in the local ignored response cache; the website publishes only anonymous participation aggregates and public post evidence behind private hosting.
 
-| Candidate | Verified availability and suitability |
-| --- | --- |
-| Arctic Shift API | Unauthenticated requests work using curl's native TLS. Python urllib received 403 in this environment. No Reddit session is used. Both posts and comments are available for all three communities. Exact probe endpoints and returned boundaries are in `dist/data/manifest.json`. |
+| Candidate                          | Verified availability and suitability                                                                                                                                                                                                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Arctic Shift API                   | Unauthenticated requests work using curl's native TLS. Python urllib received 403 in this environment. No Reddit session is used. Both posts and comments are available for all three communities. Exact probe endpoints and returned boundaries are in `dist/data/manifest.json`.             |
 | Arctic Shift downloadable archives | The maintained download list includes monthly releases through July 2026 as checked. July's Academic Torrents entry lists 80.27 GB total: 23.21 GB submissions and 57.06 GB comments. No torrent was downloaded. Stream compressed JSONL and filter by subreddit if adopting this route later. |
-| Pushshift API | Reddit's official access page requires approved moderators and limits usage to moderation use cases. This analytics task does not qualify on that basis; no access request was made. |
-| Older Pushshift-derived downloads | Older releases exist in the archive catalog, including a top-40k-subreddit collection ending December 2023. Such older archives cannot establish recent coverage for newer communities like ClaudeCode. Not downloaded or relied on. |
+| Pushshift API                      | Reddit's official access page requires approved moderators and limits usage to moderation use cases. This analytics task does not qualify on that basis; no access request was made.                                                                                                           |
+| Older Pushshift-derived downloads  | Older releases exist in the archive catalog, including a top-40k-subreddit collection ending December 2023. Such older archives cannot establish recent coverage for newer communities like ClaudeCode. Not downloaded or relied on.                                                           |
 
 ## Fields and timing
 
@@ -47,3 +47,11 @@ No explicit dataset redistribution license was found in the checked root documen
 ## Optional live counts
 
 No current online count was obtained in this project, and no Reddit session credential was accessed. The prior GraphQL/userscript experiment remains unconfirmed. Even a working live endpoint would require repeated future observations; it would not provide past online counts. The historical platform works independently of that enhancement.
+
+## Expansion check — 14 September 2026 IST
+
+The public API returned `Access-Control-Allow-Origin: *`, enabling direct browser acquisition without a hosting proxy or Reddit credentials. Subreddit prefix search and direct community names are supported. The directory itself updates infrequently, so an absent suggestion does not establish absent post/comment coverage.
+
+The new adapter exhausted one complete IST day's queries for r/ollama and r/LocalLLaMA on 10 September 2026: respectively 242 and 3,744 records. A separate latest-record probe also returned a recent LocalLLaMA post. This establishes a usable fourth community, not complete coverage of all subreddits.
+
+An additional aggregate query returned nonzero hourly counts, unlike the earlier aggregate probe. Bare date strings were interpreted with an offset, so the on-demand adapter consistently sends numeric UTC epoch boundaries derived from the selected IANA timezone. The expanded dashboard continues to compute volume and distinct participants from acquired records, rather than mixing upstream aggregate definitions with its bot exclusions.

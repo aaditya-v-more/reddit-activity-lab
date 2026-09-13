@@ -1,4 +1,5 @@
-import { analyze, DAYS, median } from "./analysis.js";
+import { analyze, DAYS, median, localParts } from "./analysis.js";
+import { BOTS, addDays, subredditName } from "./archive.js";
 const $ = (s) => document.querySelector(s);
 const n = (x) =>
   x == null
@@ -33,6 +34,10 @@ const colors = [
   "#183855",
 ];
 const state = {
+  mode: "archive",
+  studyManifest: null,
+  loading: false,
+  lastAnalysisCheck: 0,
   view: "overview",
   metric: "comments",
   data: null,
@@ -153,7 +158,7 @@ function render() {
     return;
   }
   $("#status").innerHTML =
-    `<span class="coverage-icon" aria-hidden="true">◷</span><span><strong>${shortDate(r.start)} – ${shortDate(r.end)} ${r.end.slice(0, 4)}</strong> · ${r.days} complete local days · Arctic Shift archive · ${r.clippedDays ? `${r.clippedDays} uncovered or partial days excluded` : "Known bots excluded"} · <button class="text-button" data-view="methodology">View coverage</button></span>`;
+    `<span class="coverage-icon" aria-hidden="true">◷</span><span><strong>${shortDate(r.start)} – ${shortDate(r.end)} ${r.end.slice(0, 4)}</strong> · ${r.days} complete local days · Arctic Shift archive · ${state.data.mode === "on-demand" ? `Day caches fetched ${moment(Date.parse(state.data.coverage.fetchedAtMin) / 1000)}–${moment(Date.parse(state.data.coverage.fetchedAtMax) / 1000)} · ` : ""} ${r.clippedDays ? `${r.clippedDays} uncovered or partial days excluded` : "Known bots excluded"} · <button class="text-button" data-view="methodology">View coverage</button></span>`;
   $("#content").innerHTML =
     state.view === "overview"
       ? overview()
@@ -165,38 +170,177 @@ function render() {
             ? postsView()
             : methodology();
 }
-async function load() {
-  const ticket = ++load.ticket;
-  $("#content").setAttribute("aria-busy", "true");
-  $("#status").textContent = "Calculating from archived records…";
+const worker = new Worker(new URL("./archive-worker.js", import.meta.url), {
+  type: "module",
+});
+let nextJob = 0,
+  activeLoad = null,
+  pulsePending = false;
+const jobs = new Map();
+worker.addEventListener("message", ({ data }) => {
+  const pending = jobs.get(data.id);
+  if (!pending) return;
+  if (data.progress) {
+    pending.progress?.(data.progress);
+    return;
+  }
+  jobs.delete(data.id);
+  if (data.error) pending.reject(new Error(data.error));
+  else pending.resolve(data.result);
+});
+worker.addEventListener("error", () => {
+  for (const pending of jobs.values())
+    pending.reject(
+      new Error(
+        "The background analysis could not start. Reload in a current browser.",
+      ),
+    );
+  jobs.clear();
+});
+function job(action, options, progress) {
+  const id = ++nextJob;
+  const promise = new Promise((resolve, reject) => {
+    jobs.set(id, { resolve, reject, progress });
+  });
+  worker.postMessage({ id, action, ...options });
+  return { id, promise };
+}
+function setRecent(days = 28) {
+  const today = localParts(Date.now() / 1000, $("#timezone").value).date;
+  $("#end").value = addDays(today, -1);
+  $("#start").value = addDays(today, -days);
+}
+function liveManifest() {
+  return {
+    generatedAt: new Date().toISOString(),
+    knownBots: BOTS,
+    communities: ["ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name })),
+    zones: [...$("#timezone").options].map((x) => x.value),
+    defaultStart: $("#start").value,
+    defaultEnd: $("#end").value,
+  };
+}
+const moment = (t) =>
+  t == null
+    ? "Unavailable"
+    : new Date(t * 1000).toLocaleString("en-GB", {
+        timeZone: $("#timezone").value,
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+async function refreshPulse() {
+  if (pulsePending || state.mode !== "archive" || state.loading) return;
+  pulsePending = true;
+  const name = $("#community").value;
   try {
-    const name = $("#community").value;
-    if (!state.cache.has(name)) {
-      const res = await fetch(`/data/${encodeURIComponent(name)}.json`);
-      if (!res.ok) throw new Error("The data file is unavailable.");
-      state.cache.set(name, await res.json());
+    const pulse = await job("pulse", { subreddit: name }).promise;
+    if (name !== $("#community").value || state.mode !== "archive") return;
+    $("#freshness").innerHTML =
+      `<span><strong>Latest archived post</strong> ${moment(pulse.posts?.createdAt)}</span><span><strong>Latest archived comment</strong> ${moment(pulse.comments?.createdAt)}</span><span>Checked ${moment(Date.parse(pulse.checkedAt) / 1000)} · ${esc(zoneLabel())}</span><span class="freshness-note">Creation times of the newest records returned, not online-user counts. Polls every 5 minutes while visible; archive delays still apply.</span>`;
+  } catch (error) {
+    $("#freshness").textContent =
+      "Source freshness unavailable: " + error.message;
+  } finally {
+    pulsePending = false;
+  }
+}
+async function load(force = false) {
+  if (typeof force !== "boolean") force = false;
+  const ticket = ++load.ticket;
+  if (activeLoad) worker.postMessage({ action: "cancel", target: activeLoad });
+  state.loading = true;
+  state.result = null;
+  $("#content").setAttribute("aria-busy", "true");
+  $("#status").textContent = "Preparing the selected archive interval…";
+  $("#content").innerHTML =
+    '<div class="loading-state"><span class="loader"></span><h2>Building your analysis</h2><p id="load-detail">Reusing completed days and requesting missing records.</p><progress class="download-progress" id="load-progress" max="1" value="0"></progress><p class="small">First loads can take a few minutes. Use 7 days or 1 day for very busy communities.</p><button class="button quiet" id="cancel-load">Cancel</button></div>';
+  try {
+    const entered = subredditName($("#community").value);
+    const name =
+      state.manifest.communities.find(
+        (c) => c.name.toLowerCase() === entered.toLowerCase(),
+      )?.name || entered;
+    $("#community").value = name;
+    const options = {
+      subreddit: name,
+      start: $("#start").value,
+      end: $("#end").value,
+      zone: $("#timezone").value,
+      force,
+    };
+    let data;
+    if (state.mode === "study") {
+      const entry = state.manifest.communities.find(
+        (c) => c.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (!entry)
+        throw new Error(
+          "This community is not in the saved study. Choose Current archive to acquire it.",
+        );
+      data = state.cache.get(entry.name);
+      if (!data) {
+        const res = await fetch(`/data/${encodeURIComponent(entry.file)}`);
+        if (!res.ok) throw new Error("The saved study file is unavailable.");
+        data = await res.json();
+      }
+    } else {
+      const request = job("load", { options }, (p) => {
+        if (ticket !== load.ticket) return;
+        $("#load-detail").textContent =
+          `${p.done}/${p.total} completed days · ${p.records.toLocaleString()} records fetched · ${p.date}`;
+        $("#load-progress").max = p.total;
+        $("#load-progress").value = p.done;
+      });
+      activeLoad = request.id;
+      data = await request.promise;
     }
     if (ticket !== load.ticket) return;
-    const data = state.cache.get(name),
-      result = analyze(data, {
-        start: $("#start").value,
-        end: $("#end").value,
-        zone: $("#timezone").value,
-      });
+    if (!data.audit.records)
+      throw new Error(
+        "No archived records were returned for this community and interval. Try different dates or check the subreddit name; this is not proof of inactivity.",
+      );
+    const result = analyze(data, options);
+    state.cache.delete(data.subreddit);
+    state.cache.set(data.subreddit, data);
+    while (state.cache.size > 6)
+      state.cache.delete(state.cache.keys().next().value);
+    if (!state.manifest.communities.some((c) => c.name === data.subreddit))
+      state.manifest.communities.push({ name: data.subreddit });
+    if (state.mode === "archive")
+      state.manifest.communities = state.manifest.communities
+        .filter(
+          (c) =>
+            ["ClaudeAI", "ClaudeCode", "ollama"].includes(c.name) ||
+            state.cache.has(c.name),
+        )
+        .slice(-9);
     state.data = data;
     state.result = result;
     state.page = 0;
     state.cell = null;
     state.window = null;
+    state.lastAnalysisCheck = Date.now();
     render();
+    if (state.mode === "study")
+      $("#freshness").textContent =
+        `Saved study · exported ${state.manifest.generatedAt.slice(0, 10)}. Switch to Current archive to request new data.`;
     return { ok: true };
   } catch (error) {
+    if (ticket !== load.ticket) return;
     state.result = null;
     $("#content").setAttribute("aria-busy", "false");
-    $("#status").textContent = "Analysis unavailable";
+    $("#status").textContent = "No incomplete findings published";
     $("#content").innerHTML =
-      `<div class="empty-state"><h2>We couldn’t load this analysis</h2><p>${esc(error.message)}</p><button class="button" id="retry">Try again</button></div>`;
+      `<div class="empty-state"><h2>Analysis not available</h2><p>${esc(error.message)}</p><button class="button" id="retry">Try again</button> <button class="button quiet" data-days="7">Try 7 days</button> <button class="button quiet" data-days="1">Try 1 day</button></div>`;
     return { ok: false, error: error.message };
+  } finally {
+    if (ticket === load.ticket) {
+      state.loading = false;
+      activeLoad = null;
+      refreshPulse();
+    }
   }
 }
 load.ticket = 0;
@@ -238,47 +382,133 @@ $("#filters").addEventListener("submit", (e) => {
 $("#community").addEventListener("change", load);
 $("#timezone").addEventListener("change", load);
 async function init() {
-  try {
-    const r = await fetch("/data/manifest.json");
-    if (!r.ok) throw new Error("The archive manifest is unavailable.");
-    state.manifest = await r.json();
+  setRecent();
+  state.manifest = liveManifest();
+  if (document.body.dataset.localStudy === "true") {
+    try {
+      const response = await fetch("/data/manifest.json");
+      if (response.ok) {
+        state.studyManifest = await response.json();
+        $("#source-mode").add(new Option("Saved six-week study", "study"));
+      }
+    } catch {}
+  }
+  refreshPulse();
+  await load();
+  registerTools();
+}
+let suggestionTimer, suggestionJob;
+$("#community").addEventListener("input", () => {
+  clearTimeout(suggestionTimer);
+  const prefix = $("#community").value;
+  if (prefix.replace(/^r\//i, "").length < 2) return;
+  suggestionTimer = setTimeout(async () => {
+    if (suggestionJob)
+      worker.postMessage({ action: "cancel", target: suggestionJob });
+    try {
+      const request = job("discover", { prefix });
+      suggestionJob = request.id;
+      const names = await request.promise;
+      if ($("#community").value === prefix)
+        $("#community-options").innerHTML = names
+          .map((x) => `<option value="${esc(x)}"></option>`)
+          .join("");
+    } catch {}
+  }, 600);
+});
+$("#source-mode").addEventListener("change", () => {
+  state.mode = $("#source-mode").value;
+  state.cache.clear();
+  if (state.mode === "study") {
+    state.manifest = state.studyManifest;
     $("#start").value = state.manifest.defaultStart;
     $("#end").value = state.manifest.defaultEnd;
-    $("#community").innerHTML = state.manifest.communities
-      .map((c) => `<option value="${esc(c.name)}">r/${esc(c.name)}</option>`)
-      .join("");
-    await load();
-    await Promise.allSettled(
-      state.manifest.communities.map(async (c) => {
-        if (!state.cache.has(c.name)) {
-          const response = await fetch("/data/" + encodeURIComponent(c.file));
-          if (response.ok) state.cache.set(c.name, await response.json());
-        }
-      }),
-    );
-    render();
-    registerTools();
-  } catch (e) {
-    $("#status").textContent = e.message;
-    $("#content").innerHTML =
-      '<div class="empty-state"><h2>Archive not available</h2><p>The data export could not be loaded. Reload to retry.</p><p>Running your own copy? Acquire a bounded dataset and generate its exports using the <a href="https://github.com/aaditya-v-more/reddit-activity-lab#run-locally" target="_blank" rel="noopener noreferrer">setup guide</a>. Reddit records are not bundled with the public source.</p></div>';
-    $("#content").setAttribute("aria-busy", "false");
+    if (
+      !state.manifest.communities.some((c) => c.name === $("#community").value)
+    )
+      $("#community").value = state.manifest.communities[0].name;
+  } else {
+    setRecent();
+    state.manifest = liveManifest();
   }
-}
+  load();
+});
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.days) {
+    setRecent(Number(b.dataset.days));
+    if (state.mode === "study") {
+      state.mode = "archive";
+      $("#source-mode").value = "archive";
+      state.cache.clear();
+      state.manifest = liveManifest();
+    }
+    load();
+  }
+  if (b.id === "refresh-archive") load(true);
+  if (b.id === "cancel-load" && activeLoad)
+    worker.postMessage({ action: "cancel", target: activeLoad });
+  if (b.id === "clear-browser-cache")
+    job("clear", {}).promise.then(() => {
+      b.textContent = "Browser cache cleared";
+    });
+  if (b.id === "download-provenance" && state.data?.ledger) {
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          {
+            subreddit: state.data.subreddit,
+            coverage: state.data.coverage,
+            requests: state.data.ledger,
+          },
+          null,
+          2,
+        ),
+      ],
+      { type: "application/json" },
+    );
+    const url = URL.createObjectURL(blob),
+      a = document.createElement("a");
+    a.href = url;
+    a.download = "reddit-activity-provenance.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+});
+setInterval(() => {
+  if (
+    document.hidden ||
+    !$("#auto-refresh").checked ||
+    state.mode !== "archive" ||
+    state.loading
+  )
+    return;
+  refreshPulse();
+  if (state.result && Date.now() - state.lastAnalysisCheck >= 15 * 60000)
+    load();
+}, 5 * 60000);
+window.addEventListener("pagehide", (event) => {
+  if (!event.persisted) worker.terminate();
+});
 function comparison() {
   const cards = state.manifest.communities
     .map((c) => {
       const d = state.cache.get(c.name);
-      if (!d)
-        return `<article class="panel"><h3>r/${esc(c.name)}</h3><p class="small">Loading community comparison…</p></article>`;
+      if (!d || !d.zones[$("#timezone").value])
+        return `<article class="panel"><h3>r/${esc(c.name)}</h3><p class="small">Load this community to compare the same dates and timezone.</p><button class="text-button" data-community="${esc(c.name)}">Load community →</button></article>`;
       const r = analyze(d, {
         start: $("#start").value,
         end: $("#end").value,
         zone: $("#timezone").value,
       });
-      if (r.empty)
-        return `<article class="panel"><h3>r/${esc(c.name)}</h3><p>No complete days in this range.</p></article>`;
-      return `<article class="panel"><span class="tag">${c.name === "ollama" ? "Local models" : c.name === "ClaudeCode" ? "Coding with Claude" : "Claude community"}</span><h3 style="margin-top:8px">r/${esc(c.name)}</h3><div class="metric-big">${n(r.totals.comments / r.days)}</div><p class="small" style="margin:0">comments per day · ${n(r.totals.posts / r.days)} new posts/day</p><div class="rec-rule" style="background:var(--line)"></div><p class="small">Median score <strong>${n(r.totals.score)}</strong> · ${n(r.totals.n)} eligible posts<br>Busiest comments: <strong>${windowLabel(r.busiest)}</strong><br>${r.recommendation ? `${r.recommendation.label} for ${windowLabel(r.recommendation)}` : "Too little evidence to rank performance"}</p><button class="text-button" data-community="${esc(c.name)}">Explore this community →</button></article>`;
+      if (
+        r.empty ||
+        r.start !== state.result.start ||
+        r.end !== state.result.end
+      )
+        return `<article class="panel"><h3>r/${esc(c.name)}</h3><p class="small">A matching interval is not cached.</p><button class="text-button" data-community="${esc(c.name)}">Load these dates →</button></article>`;
+      return `<article class="panel"><span class="tag">${c.name === "ollama" ? "Local models" : c.name === "ClaudeCode" ? "Coding with Claude" : c.name === "ClaudeAI" ? "Claude community" : "Archive community"}</span><h3 style="margin-top:8px">r/${esc(c.name)}</h3><div class="metric-big">${n(r.totals.comments / r.days)}</div><p class="small" style="margin:0">comments per day · ${n(r.totals.posts / r.days)} new posts/day</p><div class="rec-rule" style="background:var(--line)"></div><p class="small">Median score <strong>${n(r.totals.score)}</strong> · ${n(r.totals.n)} eligible posts<br>Busiest comments: <strong>${windowLabel(r.busiest)}</strong><br>${r.recommendation ? `${r.recommendation.label} for ${windowLabel(r.recommendation)}` : "Too little evidence to rank performance"}</p><button class="text-button" data-community="${esc(c.name)}">Explore this community →</button></article>`;
     })
     .join("");
   return `<section style="margin:26px 0"><div class="panel-head"><div><h2>Where does your topic fit?</h2><p>Compare activity and competition. A higher score in one community does not predict how the same post will perform elsewhere.</p></div></div><div class="comparison">${cards}</div></section>`;
@@ -345,7 +575,19 @@ function postsView() {
   const shown = p.slice(state.page * 25, (state.page + 1) * 25);
   return `<section class="panel"><div class="panel-head"><div><h2>Inspect the evidence</h2><p>${n(p.length)} matching posts · public archive scores may differ from current Reddit scores.</p></div><button class="button" id="clear-post-filters">Clear post filters</button></div>${state.cell != null ? `<p class="small">Filtered to ${DAYS[Math.floor(state.cell / 24)]} ${hr(state.cell % 24)}–${hr((state.cell % 24) + 1)}.</p>` : ""}${state.window != null ? `<p class="small">Filtered to ${hr(state.window * 4)}–${hr((state.window + 1) * 4)} across the week.</p>` : ""}<form class="table-controls" id="post-form"><input type="search" id="post-search" aria-label="Search post titles" placeholder="Search post titles…" value="${esc(state.search)}"><select id="eligibility" aria-label="Analysis eligibility"><option value="all" ${state.eligibility === "all" ? "selected" : ""}>All archived posts</option><option value="eligible" ${state.eligibility === "eligible" ? "selected" : ""}>Eligible for performance</option><option value="excluded" ${state.eligibility === "excluded" ? "selected" : ""}>Excluded from performance</option></select><select id="post-sort" aria-label="Sort posts"><option value="score" ${state.postSort === "score" ? "selected" : ""}>Highest score</option><option value="comments" ${state.postSort === "comments" ? "selected" : ""}>Most comments</option><option value="newest" ${state.postSort === "newest" ? "selected" : ""}>Newest submitted</option></select><button class="button">Search</button></form>${shown.length ? `<div class="table-scroll"><table><thead><tr><th>Post</th><th>Submitted · ${esc(zoneLabel())}</th><th>Net score</th><th>Comments</th><th>Snapshot age</th><th>Performance eligibility</th></tr></thead><tbody>${shown.map((p) => `<tr><td class="post-title"><a href="https://www.reddit.com/r/${encodeURIComponent(state.data.subreddit)}/comments/${encodeURIComponent(p.id)}/" target="_blank" rel="noopener noreferrer">${esc(p.title)} ↗</a><small>${esc(p.flair || "No flair")} · ${esc(p.id)}</small></td><td>${p.date}<br>${new Intl.DateTimeFormat("en-GB", { timeZone: state.result.zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(p.t * 1000)}</td><td>${n(p.score)}</td><td>${n(p.comments)}</td><td>${p.age == null ? "Unknown" : `${p.age.toFixed(2)}h`}<small class="small">${p.snapshotAt ? `<br>${new Date(p.snapshotAt * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}` : ""}</small></td><td><span class="pill ${p.excluded ? "muted-warning" : ""}">${esc(p.excluded || "Eligible")}</span></td></tr>`).join("")}</tbody></table></div><div class="pagination"><span>Page ${state.page + 1} of ${pages} · 25 per page</span><div class="buttons"><button class="button" data-page="-1" ${state.page === 0 ? "disabled" : ""}>Previous</button><button class="button" data-page="1" ${state.page >= pages - 1 ? "disabled" : ""}>Next</button></div></div>` : '<div class="empty-state"><h3>No matching posts</h3><p>Try a broader search or clear the post filters.</p></div>'}</section>`;
 }
+function currentMethodology() {
+  const d = state.data;
+  return `<div class="notice"><strong>An archive-backed study, not a live audience counter.</strong> Recent record timestamps show source freshness. Historical analysis uses completed local days and eligible score snapshots.</div><div class="method-grid">
+  <section class="panel prose"><h2>What each metric means</h2><ul><li><strong>Activity:</strong> posts and comments created during the selected interval. Known bots are excluded; captured removed content still contributes to volume.</li><li><strong>Participants:</strong> distinct available authors within a date/hour or local day. Deleted or missing authors are excluded. Counts across hours cannot be added to obtain unique daily people.</li><li><strong>Score:</strong> net voting, not an exact upvote count. No online-user counts, silent readership, weekly visitors, or private views are measured.</li></ul></section>
+  <section class="panel prose"><h2>Any covered subreddit, within a bounded interval</h2><p>The browser requests actual records directly from Arctic Shift. No Reddit login is used. A subreddit can be entered even when the provider's infrequently updated discovery directory does not list it.</p><p>Each run is bounded to 93 days, 200,000 records, and 350 source requests. Very busy communities need shorter ranges. Every page must be exhausted before a day's data is used; failed or capped acquisitions never become sampled findings.</p><p>This makes arbitrary communities accessible without hosting an all-Reddit database. It does not establish complete Reddit coverage.</p></section>
+  <section class="panel prose"><h2>Freshness and caching</h2><p>Latest post and comment timestamps are checked every 5 minutes while this tab is visible and auto-refresh is enabled. Analysis is checked every 15 minutes. The most recent three days have a 15-minute cache; older completed days expire after seven days. “Refresh data” bypasses those caches.</p><p>Polling is not a webhook: an update can arrive between checks, and archive processing may be delayed. The current day is incomplete and excluded from timing comparisons. The provider usually refreshes post outcomes roughly 36 hours after creation.</p><p>Oldest included day-cache retrieval: <strong>${moment(Date.parse(d.coverage.fetchedAtMin) / 1000)}</strong>. Newest: <strong>${moment(Date.parse(d.coverage.fetchedAtMax) / 1000)}</strong>, ${esc(zoneLabel())}.</p></section>
+  <section class="panel prose"><h2>Comparable outcomes</h2><p>Only posts with a recorded second snapshot age between 35 and 40 hours enter performance comparisons. Removed/deleted, pinned, known-bot, and missing-outcome posts are excluded. Restoration metadata overrides stale initial moderation fields; explicit later removal wins.</p><p>Recent posts without a mature snapshot count toward activity but not performance. Download time is not score measurement time; these are neither final outcomes nor first-24-hour measurements.</p></section>
+  <section class="panel prose"><h2>Success and uncertainty</h2><p>Descriptive success is score at or above the rounded-up 75th percentile for eligible posts from that community and selected month, at least 1. Ties can make more than 25% successful.</p><p>The candidate threshold is fitted only on the earlier half and frozen for the later half. Six four-hour windows are compared using the first-half Wilson lower bound; a candidate needs 20 posts per half and four represented weeks. Later-half differences use 1,000 calendar-week bootstrap samples when at least three weeks are available.</p><p>Multiple comparisons, sparse groups, partial weeks, content, topic, flair, moderation, growth, and events limit interpretation. These are observational associations, not promises that changing time causes better results.</p></section>
+  <section class="panel prose"><h2>Data footprint and reproducibility</h2><p>${n(d.audit.records)} records acquired: ${n(d.audit.posts)} posts and ${n(d.audit.comments)} comments. ${n(d.audit.knownBotRecords)} known-bot records, ${n(d.audit.unattributedRecords)} records without an attributable author, and ${n(d.audit.removedPosts)} removed/deleted posts. ${n(d.audit.eligiblePosts)} posts have eligible performance measurements.</p><p>Author names exist transiently in the acquisition worker for distinct counting. Only anonymous aggregates, redacted post evidence, request URLs, hashes, and retrieval timestamps are cached in this browser. There are no author timelines or third-party analytics logs. Cache storage is bounded to approximately 40 MB and 180 day entries, and may be evicted by your browser.</p><button class="button quiet" id="download-provenance">Download request provenance</button> <button class="button quiet" id="clear-browser-cache">Clear browser cache</button></section>
+  </div><section class="panel prose"><h2>Source and hosting</h2><p><a href="https://github.com/ArthurHeitmann/arctic_shift/blob/master/api/README.md" target="_blank" rel="noopener noreferrer">Arctic Shift API documentation ↗</a> · <a href="https://github.com/aaditya-v-more/reddit-activity-lab" target="_blank" rel="noopener noreferrer">Project source and methodology ↗</a></p><p>The deployment serves only static code. Archive traffic goes directly from your browser to Arctic Shift; it does not consume Vercel function time or dataset storage. Source rate limits still apply. The same static build can move to Cloudflare Pages or another static host.</p><p>No dataset redistribution license was established. This website does not bundle Reddit records. Archive access and missingness depend on the provider. Cached records may lag later removals; refreshing local data updates the visible archive state.</p></section>`;
+}
 function methodology() {
+  if (state.data.mode === "on-demand") return currentMethodology();
   const d = state.data,
     a = d.audit,
     c = d.coverage,
@@ -498,7 +740,7 @@ function registerTools() {
         properties: {
           subreddit: {
             type: "string",
-            enum: state.manifest.communities.map((c) => c.name),
+            pattern: "^[A-Za-z0-9_]{2,21}$",
           },
           start: { type: "string", format: "date" },
           end: { type: "string", format: "date" },
@@ -511,7 +753,7 @@ function registerTools() {
       execute: async (input) => {
         if (
           !input ||
-          !state.manifest.communities.some((c) => c.name === input.subreddit) ||
+          !/^[A-Za-z0-9_]{2,21}$/.test(input.subreddit) ||
           !state.manifest.zones.includes(input.timezone) ||
           !/^\d{4}-\d{2}-\d{2}$/.test(input.start) ||
           !/^\d{4}-\d{2}-\d{2}$/.test(input.end) ||
@@ -519,7 +761,7 @@ function registerTools() {
         )
           throw new Error("Invalid analysis filters");
         const d = state.cache.get(input.subreddit);
-        if (d)
+        if (d?.zones[input.timezone])
           analyze(d, {
             start: input.start,
             end: input.end,

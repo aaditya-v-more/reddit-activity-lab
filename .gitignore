@@ -10,3 +10,7 @@ __pycache__/
 .env*
 !/.env.example
 *.sqlite*
+/.local/
+/.vercel/
+/.output/
+.vercel
