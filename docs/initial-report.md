@@ -152,10 +152,4 @@ The top 1% of eligible posts accounted for 29.6% of positive score mass; medians
 - A guarantee of archive capture completeness, definitive bot labels, or full moderation history.
 - Causal effects of posting time, topic-matched experiments, and long-term seasonal validation.
 
-Read the [full methodology](methodology.md) for the temporal split, thresholds, uncertainty, and confounders. Personal post-insight views remain unverified and are not used as evidence.
-
-## Measured résumé wording
-
-> Built a Reddit analytics platform over 263,652 archived records across three communities, with a reproducible SQLite ingestion pipeline, eight-timezone activity heatmaps, snapshot-age validation, and temporal holdout analysis with weekly bootstrap uncertainty.
-
-Do not claim that the project increased engagement or discovered a causal best time. No prospective posting experiment has been completed.
+Read the [full methodology](methodology.md) for the temporal split, thresholds, uncertainty, and confounders. No prospective posting experiment has been completed.

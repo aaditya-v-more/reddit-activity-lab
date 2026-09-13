@@ -1,6 +1,11 @@
 import { ArcticClient, loadArchive, subredditName } from "./archive.js";
+import { analyze } from "./analysis.js";
 
-const client = new ArcticClient();
+const client = new ArcticClient({
+  relay: new URL(self.location.href).searchParams.has("relay")
+    ? new URL("/archive", self.location.href).href
+    : null,
+});
 const controllers = new Map();
 let dbPromise;
 function db() {
@@ -11,6 +16,13 @@ function db() {
         request.result.createObjectStore("days", { keyPath: "key" });
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
+      request.onblocked = () =>
+        reject(new Error("Browser cache is busy in another tab."));
+      // A blocked storage operation must not leave acquisition waiting indefinitely.
+      setTimeout(
+        () => reject(new Error("Browser cache did not open in time.")),
+        3000,
+      );
     });
   return dbPromise;
 }
@@ -25,6 +37,8 @@ async function transaction(mode, fn) {
     tx.onabort = () => reject(tx.error);
   });
 }
+const snapshotKey = (options) =>
+  `@analysis|${options.subreddit.toLowerCase()}|${options.zone}|${options.start}|${options.end}`;
 const cache = {
   async get(key) {
     try {
@@ -36,22 +50,12 @@ const cache = {
   async set(key, value) {
     try {
       const bytes = JSON.stringify(value).length * 2;
-      if (bytes > 10000000) return;
-      const saved = (await transaction("readonly", (s) => s.getAll()))
-        .filter((x) => x.key !== key)
-        .sort((a, b) => a.savedAt - b.savedAt);
-      let used = saved.reduce((sum, x) => sum + x.bytes, 0);
-      while (saved.length >= 180 || used + bytes > 40000000) {
-        const old = saved.shift();
-        if (!old) break;
-        await transaction("readwrite", (s) => s.delete(old.key));
-        used -= old.bytes;
-      }
       await transaction("readwrite", (s) =>
         s.put({ key, value, bytes, savedAt: Date.now() }),
       );
+      return true;
     } catch {
-      /* Cache denial/quota must not turn valid analysis into a failure. */
+      return false; // Keep existing data on quota failure; never evict older analyses.
     }
   },
 };
@@ -74,15 +78,31 @@ self.addEventListener("message", async ({ data }) => {
     else if (data.action === "clear") {
       await transaction("readwrite", (s) => s.clear());
       result = true;
-    } else if (data.action === "load")
-      result = await loadArchive({
+    } else if (data.action === "restore") {
+      const key = data.options
+        ? snapshotKey(data.options)
+        : await cache.get("@last");
+      result = key ? await cache.get(key) : null;
+    } else if (data.action === "remember") {
+      const key = snapshotKey({
+        subreddit: data.snapshot.dataset.subreddit,
+        ...data.snapshot.analysis,
+      });
+      result = await cache.set(key, data.snapshot);
+      if (result) await cache.set("@last", key);
+    } else if (data.action === "analyze") {
+      result = analyze(data.dataset, data.options);
+    } else if (data.action === "load") {
+      const dataset = await loadArchive({
         ...data.options,
         client,
         cache,
         signal: controller.signal,
         progress: (value) => self.postMessage({ id: data.id, progress: value }),
       });
-    else throw new Error("Unknown archive operation");
+      self.postMessage({ id: data.id, progress: { phase: "analyze" } });
+      result = { dataset, analysis: analyze(dataset, data.options) };
+    } else throw new Error("Unknown archive operation");
     self.postMessage({ id: data.id, result });
   } catch (error) {
     self.postMessage({

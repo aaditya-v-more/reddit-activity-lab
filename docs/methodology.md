@@ -56,4 +56,4 @@ Competing submissions are posts created per hour. Comments-per-new-post is a des
 
 ## Next experiment
 
-Use the candidate as one arm and the user's usual window as another. Randomly assign naturally occurring, distinct comparable posts, balance topic/flair/weekday, obey community rules, and avoid duplicate reposts or artificial frequency increases. A pilot of 10–15 posts per arm explores feasibility; it is not a justified power calculation. Record scores and comment counts at the same age, moderation outcomes, and relevant event context. Keep private view insights separate. Predeclare the comparison and retain failures.
+Use the candidate as one arm and the usual posting window as another. Randomly assign naturally occurring, distinct comparable posts, balance topic/flair/weekday, obey community rules, and avoid duplicate reposts or artificial frequency increases. A pilot of 10–15 posts per arm explores feasibility; it is not a justified power calculation. Record scores and comment counts at the same age, moderation outcomes, and relevant event context. Keep private view insights separate. Predeclare the comparison and retain failures.

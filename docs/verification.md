@@ -2,7 +2,7 @@
 
 Original study verified 11 September 2026 against the acquired dataset.
 
-The public source can be verified without downloading Reddit content: 30 tests use synthetic fixtures, including the temporal-leakage regression. One integration test is skipped until local exports exist, when it also checks the selected dataset across all exported timezones. The historical audit below describes the original dataset, whose records are excluded from the public repository.
+The public source can be verified without downloading Reddit content: Tests use synthetic fixtures and the published anonymous starter snapshots, including a temporal-leakage regression. One integration test is skipped until local exports exist, when it also checks the selected dataset across all exported timezones. The historical audit below describes the original dataset, whose records are excluded from the public repository.
 
 - **22 automated tests passed:** 12 JavaScript and 10 Python tests.
 - Every cached response SHA-256 matches its ledger entry.
@@ -17,9 +17,7 @@ Regression cases include repeated timestamp pagination, idempotent reruns, newer
 
 Browser checks used the local application with the actual exports. Verified community switching, timezone switching, date filtering and recovery from unavailable dates, performance navigation, public post title search, methodology navigation, and mobile layout at a 390×844 viewport override. A detected overflow in the heatmap container was corrected; the final document width matches the mobile viewport. Tables, navigation, and heatmaps retain intentional internal horizontal scrolling.
 
-WebMCP tools registered in the in-app browser. A valid filter configuration updated the same visible analysis and returned its selected interval; invalid input was rejected without changing the previous valid analysis. The read tool returned aggregate counts matching the visible dashboard. Browser support is optional.
-
-The Site is static and has no compilation dependency. HTML entrypoint and asset references were inspected; JavaScript and Python syntax checks passed. Local HTTP preview returned 200. Raw data, SQLite files, and temporary artifacts are ignored by Git. This describes the original private study deployment. The current delivery targets Vercel and omits all bundled study data.
+The application deploys as static assets, with an explicit build allowlist that excludes raw data, SQLite, and saved-study exports. JavaScript and Python syntax checks passed. The original saved-study checks above are separate from verification of on-demand acquisition.
 
 The checks establish reproducible processing of acquired records. They do not establish causal timing effects, complete source capture, ongoing deletion compliance, or a statistically powered posting experiment.
 
@@ -28,3 +26,13 @@ The checks establish reproducible processing of acquired records. They do not es
 The browser-compatible acquisition path returned 242 actual records for r/ollama (17 posts, 225 comments) and 3,744 for r/LocalLLaMA (100 posts, 3,644 comments), for 10 September 2026 IST. All query pages were exhausted, and post/comment totals reconciled against the shared analysis. The latter demonstrates a community beyond the original three. Both checks used the public API with credentials omitted.
 
 Nine additional synthetic-fixture tests cover local-day boundaries, anonymous participant unions, moderation restoration, overlap/deduplication, saturated-second rejection, acquisition failure atomicity, recent versus historical cache expiry, missing-day rejection, and retry/credential behavior. Combined with the existing suite: 31 passing tests when the original dataset is present; 30 passing and one explicitly skipped without it.
+
+## Loading, storage, and theme verification — 14 September 2026
+
+Six regression tests cover blocked direct requests with relay fallback, bounded network retries, timeout versus cancellation, system-theme detection, saved manual overrides, and denied storage. A further test validates all 24 starter summaries, rejects individual-record fields, and reconciles activity and outcome counts. The full suite has 41 passing tests with the original local exports, or 40 passing and one explicit skip without them.
+
+The starter extract used 40,055 records including UTC edges needed for all eight timezones. The displayed IST interval contains 36,610 records: 1,198 in r/ollama, 20,200 in r/ClaudeAI, and 15,212 in r/ClaudeCode. These are actual acquired records; only aggregate summaries and request provenance are published.
+
+Three relay regression tests cover query scoping, credential stripping, redirect refusal, write rejection, and streamed response-size limits.
+
+Browser checks confirmed that a starter analysis renders while source requests are blocked, selecting ClaudeAI loads its matching starter summary, a reload restores that selection and its analysis, and **Clear local data** returns to the bundled starter with a completion message. Light and dark themes were visually reviewed; a saved dark preference survived reload. The test browser blocked direct and same-origin archive API navigation before the preview Function was invoked, so hosted acquisition could not be verified in that browser.

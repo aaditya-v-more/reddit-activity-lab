@@ -27,6 +27,105 @@ const raw = (id, t, extra = {}) => ({
 });
 const response = (data, status = 200) =>
   new Response(JSON.stringify({ data }), { status });
+test("a blocked direct request falls back to the fixed relay and preserves source provenance", async () => {
+  const urls = [],
+    progress = [],
+    ledger = [],
+    budget = { requests: 0, records: 0 };
+  const client = new ArcticClient({
+    relay: "https://example.test/archive",
+    interval: 0,
+    wait: async () => {},
+    fetcher: async (url, options) => {
+      urls.push(url);
+      assert.equal(
+        options.credentials,
+        url.startsWith("https://example.test/") ? "same-origin" : "omit",
+      );
+      assert.equal(options.cache, "no-store");
+      if (url.startsWith("https://arctic-shift."))
+        throw new TypeError("Failed to fetch");
+      return response([{ id: "actual-fixture-id" }]);
+    },
+  });
+  await client.request(
+    "/posts/search",
+    { subreddit: "Example", limit: 1 },
+    { ledger, budget, progress: (p) => progress.push(p) },
+  );
+  await client.request("/comments/search", { subreddit: "Example", limit: 1 });
+  assert.equal(urls.length, 3);
+  assert.match(
+    urls[1],
+    /^https:\/\/example.test\/archive\/posts\/search\?subreddit=Example&limit=1$/,
+  );
+  assert.match(urls[2], /example.test\/archive\/comments/);
+  assert.match(
+    ledger[0].url,
+    /^https:\/\/arctic-shift.photon-reddit.com\/api\/posts/,
+  );
+  assert.equal(ledger[0].transport, "relay");
+  assert.equal(budget.requests, 2);
+  assert.ok(progress.some((p) => p.reason === "relay"));
+});
+test("network errors retry finitely with progress and no successful provenance", async () => {
+  const ledger = [],
+    events = [],
+    delays = [];
+  let attempts = 0;
+  const client = new ArcticClient({
+    interval: 0,
+    wait: async (ms) => delays.push(ms),
+    fetcher: async () => {
+      attempts++;
+      throw Error("offline");
+    },
+  });
+  await assert.rejects(
+    client.request(
+      "/posts/search",
+      {},
+      { ledger, progress: (p) => events.push(p) },
+    ),
+    /after three attempts/,
+  );
+  assert.equal(attempts, 3);
+  assert.equal(ledger.length, 0);
+  assert.equal(events.filter((p) => p.phase === "retry").length, 2);
+  assert.ok(delays.includes(3000) && delays.includes(6000));
+});
+test("request timeout is distinguishable and cancellation does not trigger fallback", async () => {
+  const fetcher = (_, { signal }) =>
+    new Promise((_, reject) =>
+      signal.addEventListener(
+        "abort",
+        () => reject(new DOMException("aborted", "AbortError")),
+        { once: true },
+      ),
+    );
+  const client = new ArcticClient({
+    timeoutMs: 5,
+    interval: 0,
+    wait: async () => {},
+    fetcher,
+  });
+  await assert.rejects(client.request("/posts/search", {}), /took too long/);
+  const controller = new AbortController();
+  const other = new ArcticClient({
+    relay: "https://example.test/archive",
+    interval: 0,
+    wait: async () => {},
+    fetcher: async () => {
+      controller.abort();
+      throw Error("abort");
+    },
+  });
+  await assert.rejects(
+    other.request("/posts/search", {}, { signal: controller.signal }),
+    { name: "AbortError" },
+  );
+  assert.equal(other.useRelay, false);
+});
 test("local-day acquisition boundaries include IST half-hours and DST 23/25-hour days", () => {
   assert.equal(
     dayStart("2026-08-01", "Asia/Kolkata"),

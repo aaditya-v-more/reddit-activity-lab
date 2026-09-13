@@ -4,7 +4,7 @@ Checked 11 September 2026. Candidate providers were evaluated directly; availabi
 
 ## Decision
 
-Use **Arctic Shift's public API** for a six-week, three-community extract. Direct requests returned real records through 11 September 2026. The full extraction is in the local ignored response cache; the website publishes only anonymous participation aggregates and public post evidence behind private hosting.
+Use **Arctic Shift's public API** for a six-week, three-community extract. Direct requests returned real records through 11 September 2026. The full extraction is in the local ignored response cache; the hosted website acquires selected intervals on demand and caches anonymous participation aggregates and redacted public post evidence in the browser.
 
 | Candidate                          | Verified availability and suitability                                                                                                                                                                                                                                                          |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -33,7 +33,7 @@ A day-aggregation request returned zero counts despite nonzero directly retrieve
 
 Public/private access, moderation, removals, outages, and archive removal requests affect capture. Endpoint minimum and maximum dates do not prove continuous coverage. Exhausting query pages does not prove all Reddit records were captured. Missing authors are excluded from distinct counts, and retained removed records still contribute to activity totals. Exact deletion timing may be unknown.
 
-No explicit dataset redistribution license was found in the checked root documentation or July torrent metadata (its license field is blank). The repository root `LICENSE` request returned 404. This is an unresolved rights question, not evidence of public-domain status. Keep hosting private and obtain provider guidance before publishing data.
+No explicit dataset redistribution license was found in the checked root documentation or July torrent metadata (its license field is blank). The repository root `LICENSE` request returned 404. This is an unresolved rights question, not evidence of public-domain status. Obtain provider guidance before redistributing archive datasets. Hosted builds contain application code only.
 
 ## Primary references
 
@@ -46,7 +46,7 @@ No explicit dataset redistribution license was found in the checked root documen
 
 ## Optional live counts
 
-No current online count was obtained in this project, and no Reddit session credential was accessed. The prior GraphQL/userscript experiment remains unconfirmed. Even a working live endpoint would require repeated future observations; it would not provide past online counts. The historical platform works independently of that enhancement.
+No current online count was obtained in this project, and no Reddit session credential was accessed. Even a working live endpoint would require repeated future observations; it would not provide past online counts. The historical platform works independently of that enhancement.
 
 ## Expansion check — 14 September 2026 IST
 

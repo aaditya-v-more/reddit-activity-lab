@@ -1,11 +1,9 @@
 /data/
 /dist/data/
-/.openai/
 /docs/personal-post-validation.md
 .venv/
 __pycache__/
 *.pyc
-.sites-runtime/
 .DS_Store
 .env*
 !/.env.example

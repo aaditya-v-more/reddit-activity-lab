@@ -246,15 +246,24 @@ export class ArcticClient {
     interval = LIMITS.interval,
     wait = sleep,
     now = () => Date.now(),
+    relay = null,
+    timeoutMs = 25000,
   } = {}) {
     this.fetcher = fetcher;
     this.interval = interval;
     this.wait = wait;
     this.now = now;
+    this.relay = relay;
+    this.useRelay = false;
+    this.timeoutMs = timeoutMs;
     this.tail = Promise.resolve();
     this.last = 0;
   }
-  async request(path, params, { signal, budget, ledger } = {}) {
+  async request(
+    path,
+    params,
+    { signal, budget, ledger, progress = () => {} } = {},
+  ) {
     const run = async () => {
       const url = new URL(API + path);
       for (const [k, v] of Object.entries(params))
@@ -273,37 +282,64 @@ export class ArcticClient {
         const timeout = new AbortController();
         const abort = () => timeout.abort();
         signal?.addEventListener("abort", abort, { once: true });
-        const timer = setTimeout(() => timeout.abort(), 25000);
+        const timer = setTimeout(() => timeout.abort(), this.timeoutMs);
         let res, body;
+        let networkError;
+        const transport = this.useRelay ? "relay" : "direct";
+        const requestUrl = this.useRelay
+          ? this.relay + path + url.search
+          : url.href;
+        progress({ phase: "request", transport, attempt: attempt + 1 });
         try {
-          res = await this.fetcher(url.href, {
-            credentials: "omit",
+          res = await this.fetcher(requestUrl, {
+            credentials: this.useRelay ? "same-origin" : "omit",
+            cache: "no-store",
             signal: timeout.signal,
           });
           body = await res.text();
         } catch (e) {
           if (signal?.aborted)
             throw new DOMException("Cancelled", "AbortError");
-          throw new Error(
-            "Arctic Shift could not be reached. The source may be unavailable or blocked on this network. Cached completed days are retained.",
-          );
+          networkError = timeout.signal.aborted ? "timeout" : "connection";
         } finally {
           clearTimeout(timer);
           signal?.removeEventListener("abort", abort);
         }
+        if (networkError) {
+          if (attempt < 2) {
+            if (this.relay && !this.useRelay) {
+              this.useRelay = true;
+              progress({ phase: "retry", reason: "relay", seconds: 1 });
+              await this.wait(1000, signal);
+            } else {
+              const seconds = 3 * 2 ** attempt;
+              progress({ phase: "retry", reason: networkError, seconds });
+              await this.wait(seconds * 1000, signal);
+            }
+            continue;
+          }
+          throw new Error(
+            networkError === "timeout"
+              ? "The archive took too long to respond after three attempts. Retry with fewer days; completed days are saved."
+              : "The archive connection failed after three attempts. Check your connection or retry later. Completed days are saved.",
+          );
+        }
         if (res.status === 429 || res.status >= 500 || res.status === 422) {
           if (attempt < 2) {
-            await this.wait(
-              Math.min(
-                60000,
-                Math.max(
-                  3000,
-                  Number(res.headers.get("x-ratelimit-reset") || 0) * 1000,
-                  3000 * 2 ** attempt,
-                ),
+            const delay = Math.min(
+              60000,
+              Math.max(
+                3000,
+                Number(res.headers.get("x-ratelimit-reset") || 0) * 1000,
+                3000 * 2 ** attempt,
               ),
-              signal,
             );
+            progress({
+              phase: "retry",
+              reason: res.status === 429 ? "rate-limit" : "source",
+              seconds: Math.ceil(delay / 1000),
+            });
+            await this.wait(delay, signal);
             continue;
           }
         }
@@ -315,7 +351,14 @@ export class ArcticClient {
           throw new Error(
             "A source response exceeded the browser safety limit.",
           );
-        const payload = JSON.parse(body);
+        let payload;
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          throw new Error(
+            "The archive returned a page instead of records. It may be temporarily unavailable; retry later.",
+          );
+        }
         if (!Array.isArray(payload.data))
           throw new Error("The source returned an unexpected response.");
         if (ledger) {
@@ -325,6 +368,7 @@ export class ArcticClient {
           );
           ledger.push({
             url: url.href,
+            transport,
             fetchedAt: new Date(this.now()).toISOString(),
             records: payload.data.length,
             sha256: [...new Uint8Array(hash)]
@@ -371,6 +415,7 @@ export class ArcticClient {
         signal,
         budget,
         ledger,
+        progress: (event) => progress({ kind, ...event }),
       });
       if (!raw.length) break;
       let newest = -Infinity;
@@ -459,13 +504,14 @@ export async function loadArchive({
       const a = dayStart(date, zone),
         b = dayStart(addDays(date, 1), zone),
         ledger = [];
-      const p = () =>
+      const p = (event = {}) =>
         progress({
           date,
           done: i,
           total: dates.length,
           ...budget,
           cached: false,
+          ...event,
         });
       p();
       const options = { signal, budget, ledger, progress: p };
@@ -477,6 +523,7 @@ export async function loadArchive({
         b,
         options,
       );
+      p({ phase: "aggregate" });
       chunk = aggregateDay([...posts, ...comments], {
         start: a,
         end: b,

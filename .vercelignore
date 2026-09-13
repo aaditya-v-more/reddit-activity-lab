@@ -1,6 +1,5 @@
 .git
 .local
-.openai
 data
 dist/data
 .output

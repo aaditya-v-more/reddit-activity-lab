@@ -8,17 +8,18 @@
       content="Explore real historical Reddit activity, compare posting windows, and design your next posting experiment."
     />
     <meta name="referrer" content="no-referrer" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="author" content="Aaditya More" />
     <title>Reddit Activity Lab</title>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23141d32'/%3E%3Cpath d='M7 23V16h4v7zm7 0V8h4v15zm7 0V12h4v11z' fill='%23ff693b'/%3E%3C/svg%3E"
     />
-    <link rel="stylesheet" href="/style.css?v=2.0.0" />
-    <script type="module" src="/app.js?v=2.0.0"></script>
+    <script src="/theme.js?v=2.1.0"></script>
+    <link rel="stylesheet" href="/style.css?v=2.1.0" />
+    <script type="module" src="/app.js?v=2.1.0"></script>
   </head>
-  <body data-local-study="true">
+  <body data-local-study="true" data-archive-relay="false">
     <a class="skip" href="#main">Skip to analysis</a>
     <div class="app-shell">
       <aside class="sidebar">
@@ -26,7 +27,7 @@
           ><span class="brand-mark" aria-hidden="true">▥</span
           ><span>Reddit<span class="brand-sub">ACTIVITY LAB</span></span></a
         >
-        <div class="nav-label">WORKSPACE</div>
+        <div class="nav-label">ANALYSIS</div>
         <nav aria-label="Analysis views">
           <button class="nav-item active" data-view="overview">
             <span aria-hidden="true">◫</span> Overview</button
@@ -41,11 +42,11 @@
           </button>
         </nav>
         <div class="sidebar-note">
-          <span class="archive-label">SOURCE-CONNECTED RESEARCH</span>
-          <p>Real activity.<br />Measured uncertainty.</p>
+          <span class="archive-label">DATA SOURCE</span>
+          <p>Arctic Shift</p>
           <small
-            >Powered by Arctic Shift<br />Evidence for your next
-            experiment</small
+            >Public posts and comments.<br />Coverage shown with every
+            analysis.</small
           >
         </div>
         <div class="sidebar-footer">
@@ -81,18 +82,29 @@
       <div class="workspace">
         <header class="topbar">
           <span
-            >Workspace <span class="slash">/</span>
+            >Analysis <span class="slash">/</span>
             <strong id="breadcrumb">Overview</strong></span
-          ><span class="archive-badge">Historical records</span>
+          >
+          <div class="topbar-actions">
+            <span class="archive-badge">Historical records</span>
+            <label class="theme-control"
+              >Theme
+              <select id="theme" aria-label="Color theme">
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+          </div>
         </header>
         <main id="main">
           <div class="page-heading">
             <div>
-              <p class="eyebrow">FIND YOUR NEXT POSTING WINDOW</p>
-              <h1 id="page-title">Find a posting window worth testing.</h1>
+              <p class="eyebrow">SUBREDDIT ACTIVITY &amp; POSTING TIMES</p>
+              <h1 id="page-title">When to post. Where to start.</h1>
               <p id="page-description" class="subtle">
-                See when conversations happen, and which windows are worth
-                testing.
+                Compare activity, competing posts, and score patterns in your
+                community.
               </p>
             </div>
             <button class="button quiet" id="method-button">
@@ -149,11 +161,17 @@
               <button class="button quiet compact" id="refresh-archive">
                 Refresh data
               </button>
+              <button class="button quiet compact" id="clear-local-data">
+                Clear local data
+              </button>
               <label class="auto-refresh"
                 ><input id="auto-refresh" type="checkbox" checked />
                 Auto-refresh while open</label
               >
             </div>
+          </div>
+          <div id="saved-status" class="saved-status" role="status">
+            Completed analyses are saved on this device.
           </div>
           <section
             id="freshness"
@@ -161,6 +179,7 @@
             aria-label="Archive freshness"
             aria-live="polite"
           >
+            <span class="loader inline-loader" aria-hidden="true"></span>
             Checking source freshness…
           </section>
           <div
@@ -171,13 +190,25 @@
           >
             Opening the selected archive interval…
           </div>
+          <div id="load-panel" hidden></div>
           <div id="content" aria-busy="true">
             <div class="loading-state">
-              <span class="loader"></span>
+              <span class="loader" aria-hidden="true"></span>
               <h2>Opening the archive</h2>
               <p>Loading historical records and their collection details.</p>
             </div>
           </div>
+          <noscript
+            ><p class="notice">
+              JavaScript is required to acquire records and calculate the
+              dashboard. The
+              <a
+                href="https://github.com/aaditya-v-more/reddit-activity-lab/tree/main/docs"
+                >methodology and historical report</a
+              >
+              can be read without it.
+            </p></noscript
+          >
           <footer class="main-footer">
             <span
               >Built by
