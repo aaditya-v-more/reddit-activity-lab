@@ -105,7 +105,7 @@ The on-demand path was also exercised against actual records from **r/ollama and
 npm run build
 # Preview only; choose your own account scope when linking.
 vercel link
-vercel deploy
+vercel deploy --target preview
 ```
 
 Use the Hobby plan for this personal project. No sub-daily Vercel cron job is configured. The project does not deploy to ChatGPT Sites. See [hosting and free-plan constraints](docs/hosting.md) for the deployment footprint and fallback options.

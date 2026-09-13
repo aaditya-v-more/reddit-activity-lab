@@ -13,4 +13,5 @@ __pycache__/
 /.local/
 /.vercel/
 /.output/
+/node_modules/
 .vercel

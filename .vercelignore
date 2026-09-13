@@ -4,6 +4,7 @@
 data
 dist/data
 .output
+node_modules
 docs/personal-post-validation.md
 .env*
 **/__pycache__
