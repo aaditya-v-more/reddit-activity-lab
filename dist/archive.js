@@ -249,7 +249,9 @@ export class ArcticClient {
     relay = null,
     timeoutMs = 25000,
   } = {}) {
-    this.fetcher = fetcher;
+    // Web IDL fetch requires the Window/WorkerGlobalScope receiver. Calling a
+    // stored native function as this.fetcher() otherwise throws before any I/O.
+    this.fetcher = (...args) => Reflect.apply(fetcher, globalThis, args);
     this.interval = interval;
     this.wait = wait;
     this.now = now;
@@ -300,6 +302,11 @@ export class ArcticClient {
         } catch (e) {
           if (signal?.aborted)
             throw new DOMException("Cancelled", "AbortError");
+          if (/illegal invocation|incompatible receiver/i.test(e.message))
+            throw new Error(
+              "The browser request could not start. Reload the page to update the application.",
+              { cause: e },
+            );
           networkError = timeout.signal.aborted ? "timeout" : "connection";
         } finally {
           clearTimeout(timer);

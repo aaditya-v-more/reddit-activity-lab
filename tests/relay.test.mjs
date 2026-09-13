@@ -2,6 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import handler, { sourceUrl } from "../api/archive.js";
 
+test("original and rewritten relay URLs resolve to the same scoped source request", () => {
+  const query = "subreddit=ollama&after=100&before=86500";
+  for (const kind of ["posts", "comments"])
+    assert.equal(
+      sourceUrl(`/archive/${kind}/search?${query}`),
+      sourceUrl(`/api/archive?kind=${kind}&${query}`),
+    );
+  assert.equal(
+    sourceUrl("/archive/subreddits/search?subreddit_prefix=oll"),
+    sourceUrl("/api/archive?kind=subreddits&subreddit_prefix=oll"),
+  );
+});
+
 test("relay allows only scoped day queries, latest records, and subreddit discovery", () => {
   const url = new URL(
     sourceUrl(

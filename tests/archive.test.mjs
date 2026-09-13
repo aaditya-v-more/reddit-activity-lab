@@ -27,6 +27,40 @@ const raw = (id, t, extra = {}) => ({
 });
 const response = (data, status = 200) =>
   new Response(JSON.stringify({ data }), { status });
+test("native browser fetch keeps its global receiver before any request is sent", async (t) => {
+  let calls = 0;
+  // Unlike Node fetch and arrow-function mocks, browser Web IDL methods reject
+  // a class instance as their receiver. Emulate that boundary in the default path.
+  t.mock.method(globalThis, "fetch", function () {
+    if (this !== globalThis) throw new TypeError("Illegal invocation");
+    calls++;
+    return Promise.resolve(response([{ id: "fixture" }]));
+  });
+  const client = new ArcticClient({ interval: 0 });
+  assert.deepEqual(
+    await client.request("/posts/search", { subreddit: "Example", limit: 1 }),
+    [{ id: "fixture" }],
+  );
+  assert.equal(calls, 1);
+  assert.equal(client.useRelay, false);
+});
+test("request invocation errors fail once without masquerading as an archive outage", async () => {
+  let calls = 0;
+  const client = new ArcticClient({
+    interval: 0,
+    relay: "https://example.test/archive",
+    fetcher() {
+      calls++;
+      throw new TypeError("Illegal invocation");
+    },
+  });
+  await assert.rejects(
+    client.request("/posts/search", {}),
+    /browser request could not start/,
+  );
+  assert.equal(calls, 1);
+  assert.equal(client.useRelay, false);
+});
 test("a blocked direct request falls back to the fixed relay and preserves source provenance", async () => {
   const urls = [],
     progress = [],

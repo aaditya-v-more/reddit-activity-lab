@@ -2,8 +2,13 @@ const SOURCE = "https://arctic-shift.photon-reddit.com/api";
 const COMMUNITY = /^[A-Za-z0-9_]{2,21}$/;
 
 export function sourceUrl(input) {
-  const query = new URL(input, "https://local.invalid").searchParams;
-  const kind = query.get("kind");
+  const incoming = new URL(input, "https://local.invalid");
+  const query = incoming.searchParams;
+  // Hosting adapters may preserve the original URL after a rewrite.
+  const routeKind = incoming.pathname.match(
+    /^\/archive\/(posts|comments|subreddits)\/search$/,
+  )?.[1];
+  const kind = routeKind || query.get("kind");
   if (!["posts", "comments", "subreddits"].includes(kind))
     throw Error("Unknown archive route");
   const target = new URL(`${SOURCE}/${kind}/search`);

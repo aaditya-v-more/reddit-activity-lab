@@ -35,4 +35,12 @@ The starter extract used 40,055 records including UTC edges needed for all eight
 
 Three relay regression tests cover query scoping, credential stripping, redirect refusal, write rejection, and streamed response-size limits.
 
-Browser checks confirmed that a starter analysis renders while source requests are blocked, selecting ClaudeAI loads its matching starter summary, a reload restores that selection and its analysis, and **Clear local data** returns to the bundled starter with a completion message. Light and dark themes were visually reviewed; a saved dark preference survived reload. The test browser blocked direct and same-origin archive API navigation before the preview Function was invoked, so hosted acquisition could not be verified in that browser.
+Browser checks confirmed that a starter analysis renders while source requests are blocked, selecting ClaudeAI loads its matching starter summary, a reload restores that selection and its analysis, and **Clear local data** returns to the bundled starter with a completion message. Light and dark themes were visually reviewed; a saved dark preference survived reload. An initial diagnosis attributed failed acquisition to blocked API navigation. The worker exception investigation below supersedes that diagnosis.
+
+## Browser request regression — 14 September 2026
+
+The browser worker failed before sending requests: storing native `fetch` on an `ArcticClient` instance and invoking it as `this.fetcher()` passed the wrong receiver. Chromium threw `TypeError: Failed to execute 'fetch' on 'WorkerGlobalScope': Illegal invocation`. The catch block hid that exception behind a network-error message and retried both transports. Node fetch and arrow-function mocks did not enforce the browser receiver constraint, so earlier unit checks missed the defect.
+
+The client now invokes fetch with the global receiver. Invocation failures stop once with an application-update message instead of being reported as source outages. Two regression tests cover the native receiver contract and non-retryable invocation failures. The local preview now runs the production relay handler; two tests cover route dispatch and the static file allowlist. A further test verifies original and rewritten relay URLs resolve identically. Total: **46 tests passing**, or 45 passing and one explicit integration skip without local study exports.
+
+After the fix, the browser completed all seven local dates for r/ollama (6–12 September): **1,198 acquired records across 18 requests**. The starter marker disappeared, the new acquisition timestamps were displayed, and the newest post/comment timestamps refreshed successfully.
