@@ -19,7 +19,7 @@ npm run dev
 
 `npm run dev` starts the local server with the same scoped relay used in production. Use `REDDIT_LAB_PORT` to select another port.
 
-Open [localhost:4317](http://127.0.0.1:4317). A dated starter analysis appears immediately; returning visits restore the last saved analysis. Enter a subreddit and choose local dates and a timezone to acquire your own interval. IST is the default. First loads can take minutes; subsequent loads reuse completed days. Use **7 days** or **1 day** for very active communities. Only complete acquisitions become findings.
+Open [localhost:4317](http://127.0.0.1:4317). A dated starter analysis appears immediately; returning visits restore the last saved analysis. Open the subreddit dropdown or type to search Arctic Shift’s directory. Exact names and prefix matches appear first; mouse selection and arrow-key/Enter selection load the chosen community. Recent choices are remembered on the device. Names missing from the directory can still be entered directly. Choose local dates and a timezone to acquire your own interval. IST is the default. First loads can take minutes; subsequent loads reuse completed days. Use **7 days** or **1 day** for very active communities. Only complete acquisitions become findings.
 
 ## What “any subreddit” and “fresh” mean
 
@@ -100,7 +100,7 @@ The offline source adapter remains replaceable. Map score measurement timestamps
 
 ## Verification
 
-`npm test` runs **45 tests without downloaded records** and one additional integration test when saved exports exist. Tests cover pagination ties, newer snapshots, failure completion flags, moderation restoration, bot/deleted-author handling, distinct unions, IST/DST boundaries, cache freshness, acquisition failure handling, Wilson intervals, weekly resampling, and temporal selection leakage.
+`npm test` runs **48 tests without downloaded records** and one additional integration test when saved exports exist. Tests cover pagination ties, newer snapshots, failure completion flags, moderation restoration, bot/deleted-author handling, distinct unions, IST/DST boundaries, cache freshness, acquisition failure handling, Wilson intervals, weekly resampling, and temporal selection leakage.
 
 The on-demand path was also exercised against actual records from **r/ollama and r/LocalLLaMA** for 10 September 2026 IST, acquiring 242 and 3,744 records respectively. Counts reconcile across posts, heatmaps, and daily totals. The original study's [audit](docs/validation.json) records checksum, identity-parity, and 12 reverse-order source checks. Neither audit proves complete Reddit capture.
 

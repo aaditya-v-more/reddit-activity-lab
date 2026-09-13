@@ -44,3 +44,9 @@ The browser worker failed before sending requests: storing native `fetch` on an 
 The client now invokes fetch with the global receiver. Invocation failures stop once with an application-update message instead of being reported as source outages. Two regression tests cover the native receiver contract and non-retryable invocation failures. The local preview now runs the production relay handler; two tests cover route dispatch and the static file allowlist. A further test verifies original and rewritten relay URLs resolve identically. Total: **46 tests passing**, or 45 passing and one explicit integration skip without local study exports.
 
 After the fix, the browser completed all seven local dates for r/ollama (6–12 September): **1,198 acquired records across 18 requests**. The starter marker disappeared, the new acquisition timestamps were displayed, and the newest post/comment timestamps refreshed successfully.
+
+## Subreddit picker — 14 September 2026
+
+The custom combobox supplements starter and recent communities with live directory matches. Ranking tests cover exact/prefix/substring order, case-insensitive deduplication, empty-query recent order, malformed names, no matches, and bounded results. Total: **49 tests passing**, or 48 passing and one explicit integration skip without local study exports.
+
+Browser checks confirmed live `clau` and `LocalLLa` directory matches, direct selection of r/LocalLLaMA followed by a completed analysis, arrow-key/Enter selection, Escape dismissal, and recent selections in the menu. Light and dark appearances were reviewed. At a 390 px viewport the document remained 390 px wide and the dropdown stayed inside the viewport.

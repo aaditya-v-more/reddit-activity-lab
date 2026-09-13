@@ -1,5 +1,6 @@
 import { analyze, DAYS, median, localParts } from "./analysis.js";
 import { BOTS, addDays, subredditName } from "./archive.js";
+import { createSubredditPicker } from "./subreddit-picker.js";
 const $ = (s) => document.querySelector(s);
 const n = (x) =>
   x == null
@@ -485,7 +486,6 @@ function changeSelection() {
   state.selectionEpoch++;
   load();
 }
-$("#community").addEventListener("change", changeSelection);
 $("#timezone").addEventListener("change", changeSelection);
 async function remember(snapshot) {
   const saved = await job("remember", { snapshot }).promise.catch(() => false);
@@ -579,25 +579,30 @@ async function init() {
   if (epoch === state.selectionEpoch) await load();
 }
 
-let suggestionTimer, suggestionJob;
-$("#community").addEventListener("input", () => {
-  clearTimeout(suggestionTimer);
-  state.selectionEpoch++;
-  const prefix = $("#community").value;
-  if (prefix.replace(/^r\//i, "").length < 2) return;
-  suggestionTimer = setTimeout(async () => {
-    if (suggestionJob)
-      worker.postMessage({ action: "cancel", target: suggestionJob });
-    try {
-      const request = job("discover", { prefix });
-      suggestionJob = request.id;
-      const names = await request.promise;
-      if ($("#community").value === prefix)
-        $("#community-options").innerHTML = names
-          .map((x) => `<option value="${esc(x)}"></option>`)
-          .join("");
-    } catch {}
-  }, 600);
+const communityPicker = createSubredditPicker({
+  root: $("#community-picker"),
+  getKnown: () =>
+    (
+      state.manifest?.communities ||
+      ["ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name }))
+    ).map(({ name }) => ({
+      name,
+      detail: ["ClaudeAI", "ClaudeCode", "ollama"].includes(name)
+        ? "Starter analysis available"
+        : "Previously loaded",
+    })),
+  search: (prefix) => {
+    const request = job("discover", { prefix });
+    return {
+      promise: request.promise,
+      cancel: () =>
+        worker.postMessage({ action: "cancel", target: request.id }),
+    };
+  },
+  onSelect: changeSelection,
+  onInput: () => {
+    state.selectionEpoch++;
+  },
 });
 $("#source-mode").addEventListener("change", () => {
   state.mode = $("#source-mode").value;
@@ -699,6 +704,7 @@ async function clearLocalData(button) {
   state.cache.clear();
   try {
     await job("clear", {}).promise;
+    communityPicker.clearRecent();
     $("#saved-status").textContent =
       "Local analyses cleared. The starter snapshot below is provided with the site.";
     await showStarter("ollama", $("#timezone").value, false);

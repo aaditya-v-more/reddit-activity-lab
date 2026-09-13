@@ -427,6 +427,129 @@ h3 {
 .filters label.timezone {
   flex: 1.2;
 }
+.filters .community-field {
+  flex: 1;
+  min-width: 180px;
+}
+.community-field > label {
+  margin-bottom: 7px;
+}
+.community-picker {
+  position: relative;
+}
+.filters .community-picker input {
+  width: 100%;
+  padding-left: 30px;
+  padding-right: 38px;
+}
+.community-prefix {
+  position: absolute;
+  left: 11px;
+  top: 9px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  pointer-events: none;
+}
+.community-toggle {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 36px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0 5px 5px 0;
+  color: var(--muted);
+  background: transparent;
+}
+.community-toggle:hover {
+  color: var(--ink);
+  background: var(--bg);
+}
+.community-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.community-popup {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 8;
+  width: max(100%, 290px);
+  max-width: calc(100vw - 56px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 16%);
+  overflow: hidden;
+}
+.community-search-status {
+  padding: 11px 13px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.5;
+}
+#community-options {
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 5px;
+}
+#community-options:empty {
+  display: none;
+}
+.community-option {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.community-option:hover,
+.community-option[aria-selected="true"] {
+  background: var(--bg);
+  box-shadow: inset 3px 0 var(--accent-text);
+}
+.community-option-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.community-option-name strong {
+  font-weight: 750;
+  color: var(--accent-text);
+}
+.community-option-detail {
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+.community-manual {
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+}
+.community-hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 13px;
+  border-top: 1px solid var(--line);
+  font-size: 0.625rem;
+  color: var(--muted);
+}
+@media (max-width: 600px) {
+  .filters .community-field {
+    flex-basis: 100%;
+  }
+  .community-popup {
+    width: 100%;
+  }
+}
 .date-dash {
   align-self: center;
   margin-top: 18px;

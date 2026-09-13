@@ -11,3 +11,5 @@ Public post titles are suppressed when the available archive metadata indicates 
 The offline ignored `data/` directory contains original public responses, including text and author identities, for local reproducibility. Generated `dist/data/` study exports remain local and are excluded from Vercel uploads and static build output.
 
 Reddit content rights belong to their respective rights holders. No general permission to redistribute an archive was established. Public code and statistical methods do not transfer rights to underlying records. Do not publish raw responses or a bulk dataset with this project.
+
+The subreddit picker remembers up to 12 recently selected community names in local storage. It stores no author information. **Clear local data** also removes this recent-selection list; the theme preference remains. Directory searches are debounced, cancelled when superseded, and cached in memory for the open page.

@@ -13,6 +13,7 @@ const files = [
   "archive.js",
   "archive-worker.js",
   "theme.js",
+  "subreddit-picker.js",
 ];
 for (const entry of fs.readdirSync(out))
   fs.rmSync(path.join(out, entry), { recursive: true, force: true });

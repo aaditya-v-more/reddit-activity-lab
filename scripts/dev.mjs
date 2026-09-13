@@ -22,6 +22,7 @@ const assets = new Set([
   "/archive.js",
   "/archive-worker.js",
   "/theme.js",
+  "/subreddit-picker.js",
 ]);
 
 export function developmentHandler(relay = archiveHandler) {

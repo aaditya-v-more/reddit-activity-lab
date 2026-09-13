@@ -112,19 +112,68 @@
             </button>
           </div>
           <form id="filters" class="filters">
+            <div class="community-field">
+              <label for="community">Subreddit</label>
+              <div class="community-picker" id="community-picker">
+                <span class="community-prefix" aria-hidden="true">r/</span>
+                <input
+                  id="community"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="community-options"
+                  value="ollama"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  placeholder="Search subreddits"
+                  aria-describedby="community-help"
+                />
+                <button
+                  type="button"
+                  id="community-toggle"
+                  class="community-toggle"
+                  aria-label="Show subreddit suggestions"
+                  aria-expanded="false"
+                  aria-controls="community-options"
+                  tabindex="-1"
+                >
+                  <svg
+                    viewBox="0 0 20 20"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="m5 7.5 5 5 5-5"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+                <div id="community-popup" class="community-popup" hidden>
+                  <div
+                    class="community-search-status"
+                    id="community-search-status"
+                    role="status"
+                    aria-live="polite"
+                  ></div>
+                  <div
+                    id="community-options"
+                    role="listbox"
+                    aria-label="Subreddit suggestions"
+                  ></div>
+                  <div class="community-hint">
+                    <span>↑ ↓ to navigate · Enter to select</span
+                    ><span>Esc to close</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             <label
-              >Subreddit<input
-                id="community"
-                list="community-options"
-                value="ollama"
-                autocomplete="off"
-                spellcheck="false"
-                aria-describedby="community-help" />
-              <datalist id="community-options">
-                <option value="ClaudeAI"></option>
-                <option value="ClaudeCode"></option>
-                <option value="ollama"></option></datalist></label
-            ><label
               >From<input type="date" id="start" value="2026-07-28" /></label
             ><span class="date-dash" aria-hidden="true">—</span
             ><label
@@ -144,7 +193,8 @@
           </form>
           <div class="archive-controls">
             <p id="community-help">
-              Enter any subreddit covered by Arctic Shift.
+              Choose a suggestion or search any subreddit covered by Arctic
+              Shift.
             </p>
             <div class="archive-actions">
               <label
