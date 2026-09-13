@@ -252,6 +252,10 @@ async function load(force = false) {
   if (activeLoad) worker.postMessage({ action: "cancel", target: activeLoad });
   state.loading = true;
   state.result = null;
+  $("#freshness").textContent =
+    state.mode === "archive"
+      ? `Loading r/${$("#community").value} · source timestamps will refresh when acquisition completes.`
+      : "Loading the saved study…";
   $("#content").setAttribute("aria-busy", "true");
   $("#status").textContent = "Preparing the selected archive interval…";
   $("#content").innerHTML =
