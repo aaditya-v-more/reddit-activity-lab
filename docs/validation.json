@@ -1,0 +1,132 @@
+{
+  "verifiedAt": "2026-09-11T06:51:03.816522+00:00",
+  "sqliteIntegrity": "ok",
+  "rawUncompressedBytes": 117298580,
+  "rawCompressedBytes": 19459136,
+  "checks": [
+    {
+      "subreddit": "ClaudeAI",
+      "kind": "comments",
+      "uniqueRecords": 139353,
+      "rawIdentityParity": true
+    },
+    {
+      "subreddit": "ClaudeAI",
+      "kind": "posts",
+      "uniqueRecords": 11197,
+      "rawIdentityParity": true
+    },
+    {
+      "subreddit": "ClaudeCode",
+      "kind": "comments",
+      "uniqueRecords": 99107,
+      "rawIdentityParity": true
+    },
+    {
+      "subreddit": "ClaudeCode",
+      "kind": "posts",
+      "uniqueRecords": 7438,
+      "rawIdentityParity": true
+    },
+    {
+      "subreddit": "ollama",
+      "kind": "comments",
+      "uniqueRecords": 5685,
+      "rawIdentityParity": true
+    },
+    {
+      "subreddit": "ollama",
+      "kind": "posts",
+      "uniqueRecords": 872,
+      "rawIdentityParity": true
+    }
+  ],
+  "exportHashesMatch": true,
+  "aggregateOnlyParticipation": true,
+  "reverseOrderSpotChecks": [
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=ClaudeAI&after=1785693599&before=1785694200&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 1,
+      "localCount": 1,
+      "idsMatch": true,
+      "responseSha256": "09d51fba3cc6b34c0dd0b6530ce992268286e2ebb21baa7b40ab8b7d3d3cb242"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=ClaudeAI&after=1788371999&before=1788372600&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 4,
+      "localCount": 4,
+      "idsMatch": true,
+      "responseSha256": "e6bd23f16d09f9be9ab2eff80d2b174c41e01730aa2cda536a31999596818858"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/comments/search?subreddit=ClaudeAI&after=1785693599&before=1785694200&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 26,
+      "localCount": 26,
+      "idsMatch": true,
+      "responseSha256": "98e5eaf030383241b11fe610db15e2dc463ddfe45dbd90f370ef838dd6fa145f"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/comments/search?subreddit=ClaudeAI&after=1788371999&before=1788372600&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 44,
+      "localCount": 44,
+      "idsMatch": true,
+      "responseSha256": "73bc5c51aefb3001a564d7461f7b0c72b5c80212aaac125b71636981f62ee267"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=ClaudeCode&after=1785693599&before=1785694200&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 2,
+      "localCount": 2,
+      "idsMatch": true,
+      "responseSha256": "03e954d2267aa24675dcf3f72a85376acc0b96410da4fa699c4d460875e69d3a"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=ClaudeCode&after=1788371999&before=1788372600&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 2,
+      "localCount": 2,
+      "idsMatch": true,
+      "responseSha256": "b91f658e8c217a6e655fff657e901c4979a32d3e480e6eab12cf01d207d8f87c"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/comments/search?subreddit=ClaudeCode&after=1785693599&before=1785694200&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 25,
+      "localCount": 25,
+      "idsMatch": true,
+      "responseSha256": "55d296947bb753dd6f447a91befec84f7876ec21df3c2a466880c5fdec5f38de"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/comments/search?subreddit=ClaudeCode&after=1788371999&before=1788372600&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 25,
+      "localCount": 25,
+      "idsMatch": true,
+      "responseSha256": "ce24de5c4654faa2b0b14d2ff49e4d40678cc302994a589d3bc3bf4f3436cdfb"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=ollama&after=1785693599&before=1785694200&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 0,
+      "localCount": 0,
+      "idsMatch": true,
+      "responseSha256": "8fe32e407a1038ee38753b70e5374b3a46d6ae9d5f16cd5b73c53abaca8f5ed0"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=ollama&after=1788371999&before=1788372600&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 0,
+      "localCount": 0,
+      "idsMatch": true,
+      "responseSha256": "8fe32e407a1038ee38753b70e5374b3a46d6ae9d5f16cd5b73c53abaca8f5ed0"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/comments/search?subreddit=ollama&after=1785693599&before=1785694200&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 0,
+      "localCount": 0,
+      "idsMatch": true,
+      "responseSha256": "8fe32e407a1038ee38753b70e5374b3a46d6ae9d5f16cd5b73c53abaca8f5ed0"
+    },
+    {
+      "url": "https://arctic-shift.photon-reddit.com/api/comments/search?subreddit=ollama&after=1788371999&before=1788372600&sort=desc&limit=auto&fields=id%2Ccreated_utc%2Csubreddit",
+      "sourceCount": 4,
+      "localCount": 4,
+      "idsMatch": true,
+      "responseSha256": "c7347d8450277d0e0500bfcc3b07be84fddda12fa6d452a2a8a5d5aca1d37633"
+    }
+  ]
+}
