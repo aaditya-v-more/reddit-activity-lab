@@ -1,7 +1,7 @@
 import { analyze, DAYS, median, localParts } from "./analysis.js";
 import { BOTS, addDays, subredditName } from "./archive.js";
 import { createSubredditPicker } from "./subreddit-picker.js";
-import { deviceZone, preferredZone, saveZone } from "./timezone.js";
+import { preferredZone, saveZone } from "./timezone.js";
 const $ = (s) => document.querySelector(s);
 const n = (x) =>
   x == null
@@ -39,8 +39,9 @@ function selectZone(zone) {
 function timezoneHint() {
   const selected = $("#timezone").value;
   const mismatch = state.result && state.result.zone !== selected;
-  $("#timezone-help").textContent = `${timezonePreference.manual ? "Your saved choice" : "Detected from this device"}: ${timezonePreference.zone}.` +
-    (mismatch ? ` Showing saved data in ${state.result.zone}. Apply filters to analyze in ${selected}.` : "");
+  $("#timezone-help").hidden = !mismatch;
+  $("#timezone-help").textContent = mismatch
+    ? `Showing saved data in ${state.result.zone}. Apply filters to analyze in ${selected}.` : "";
 }
 selectZone(timezonePreference.zone);
 const colors = Array.from({ length: 8 }, (_, i) => `var(--heat-${i})`);
@@ -576,13 +577,6 @@ function changeSelection() {
 $("#timezone").addEventListener("change", () => {
   timezonePreference = { zone: $("#timezone").value, manual: true };
   saveZone(zoneStorage, timezonePreference.zone);
-  timezoneHint();
-  changeSelection();
-});
-$("#detect-timezone").addEventListener("click", () => {
-  timezonePreference = { zone: deviceZone(), manual: false };
-  saveZone(zoneStorage, null);
-  selectZone(timezonePreference.zone);
   timezoneHint();
   changeSelection();
 });

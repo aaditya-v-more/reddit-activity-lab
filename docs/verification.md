@@ -76,6 +76,6 @@ A browser check on a fresh localhost origin displayed the included 6–12 Septem
 
 ### Device timezone detection
 
-The browser's IANA timezone initializes the selector, with a locally saved manual choice taking precedence. “Use device timezone” clears that override. Eight public starter variants are embedded so common device timezones render immediately without archive acquisition. Other zones retain the included or saved analysis with its original timezone explicitly labelled until a user requests new analysis. Saved analyses are never relabelled as a different timezone.
+The browser's IANA timezone initializes the selector, with a locally saved manual choice taking precedence. Detection happens silently; the dropdown remains available for manual changes. Eight public starter variants are embedded so common device timezones render immediately without archive acquisition. Other zones retain the included or saved analysis with its original timezone explicitly labelled until a user requests new analysis. Saved analyses are never relabelled as a different timezone.
 
-Regression coverage verifies detection, stored choices, blocked storage, explicit reset, quarter-hour date boundaries, daylight saving in a previously unsupported zone, and zero startup archive requests for both bundled and unbundled timezones.
+Regression coverage verifies detection, stored choices, blocked storage, quarter-hour date boundaries, daylight saving in a previously unsupported zone, and zero startup archive requests for both bundled and unbundled timezones.

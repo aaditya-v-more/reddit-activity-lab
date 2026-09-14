@@ -160,7 +160,7 @@ test("unchanged filters reuse the visible analysis; changed dates start a reques
 test("device timezone selects an embedded matching summary without archive requests", async () => {
   const p = page({ detected: "America/New_York" }); await flush();
   assert.equal(p.element("#timezone").value, "America/New_York");
-  assert.match(p.element("#timezone-help").textContent, /Detected from this device: America\/New_York/);
+  assert.equal(p.element("#timezone-help").hidden, true);
   assert.doesNotMatch(p.element("#timezone-help").textContent, /Showing saved data/);
   assert.equal(p.workerActions.filter((x) => x.action === "load").length, 0);
   assert.equal(p.http.length, 0);
@@ -174,14 +174,6 @@ test("an unbundled device zone stays selected with honestly labelled starter dat
 test("manual preference wins over detection and a different saved analysis", async () => {
   const p = page({ detected: "America/New_York", preference: "Europe/Berlin", saved: snapshot() }); await flush();
   assert.equal(p.element("#timezone").value, "Europe/Berlin");
-  assert.match(p.element("#timezone-help").textContent, /Your saved choice: Europe\/Berlin/);
+  assert.match(p.element("#timezone-help").textContent, /Apply filters to analyze in Europe\/Berlin/);
   assert.equal(p.workerActions.filter((x) => x.action === "load").length, 0);
-});
-test("Use device timezone resets a manual preference and requests the user-selected zone", async () => {
-  const p = page({ detected: "Asia/Kathmandu", preference: "Europe/Berlin" }); await flush();
-  p.element("#detect-timezone").listeners.click[0](); await flush();
-  assert.match(p.element("#timezone-help").textContent, /Detected from this device: Asia\/Kathmandu/);
-  const loads = p.workerActions.filter((x) => x.action === "load");
-  assert.equal(loads.length, 1);
-  assert.equal(loads[0].options.zone, "Asia/Kathmandu");
 });
