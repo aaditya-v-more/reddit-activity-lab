@@ -56,3 +56,12 @@ Browser checks confirmed live `clau` and `LocalLLa` directory matches, direct se
 Switching analysis views now resets the document scroll position immediately after rendering. Sidebar buttons and links to methodology or supporting evidence share this behavior. Ordinary updates within a view retain the current reading position.
 
 Browser checks started each of the five sidebar transitions more than 1,500 pixels down the page; every destination returned to `scrollY = 0`. Keyboard activation also returned to the top. Switching the heatmap metric retained its position in the chart area. All 49 existing tests and the production build passed.
+
+
+## Responsive layout — 14 September 2026
+
+All five analysis views were checked in Chromium at viewport overrides of 311, 320, 375, 430, 768, 1024, and 1440 pixels. The document had no horizontal overflow, and each navigation action returned to the top. Checks used actual local study exports and the public starter summaries; they did not substitute demonstration findings.
+
+Phone checks covered the bottom navigation, expandable filters, subreddit suggestions, Escape dismissal, 16px input text, and full-width dates on the narrowest layout. Heatmap cells measure 44×44px, retain their horizontal position after selection and metric changes, and provide earlier/later buttons alongside swipe scrolling. Post evidence becomes labeled cards while comparison tables retain keyboard-accessible horizontal scrolling. Light and dark appearances, safe-area CSS, dynamic viewport height, and the browser theme-color metadata were reviewed. These are browser viewport checks, not physical-device Safari certification.
+
+The 49-test local suite and production build passed. Existing theme tests also verify that browser chrome colors follow the resolved system or manual preference. Layout changes add no runtime dependencies or server requests.

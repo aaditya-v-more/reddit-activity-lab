@@ -21,11 +21,12 @@ function fixture({ dark = false, saved = null, denied = false } = {}) {
   select.addEventListener = (_, fn) => {
     select.change = fn;
   };
+  const browserTheme = { content: null, setAttribute(_, value) { this.content = value; } };
   const storage = new Map(saved ? [["reddit-lab-theme", saved]] : []);
   vm.runInNewContext(code, {
     document: {
       documentElement: root,
-      querySelector: () => select,
+      querySelector: (selector) => selector === 'meta[name="theme-color"]' ? browserTheme : select,
       addEventListener: (type, fn) => {
         events[type] = fn;
       },
@@ -47,36 +48,43 @@ function fixture({ dark = false, saved = null, denied = false } = {}) {
       },
     },
   });
-  return { root, select, system, storage, events, windowEvents };
+  return { root, select, system, storage, events, windowEvents, browserTheme };
 }
 test("system theme applies before DOM ready and follows device changes", () => {
   const f = fixture({ dark: true });
   assert.equal(f.root.dataset.theme, "dark");
+  assert.equal(f.browserTheme.content, "#101722");
   f.events.DOMContentLoaded();
   assert.equal(f.select.value, "system");
   f.system.matches = false;
   f.system.change();
   assert.equal(f.root.dataset.theme, "light");
+  assert.equal(f.browserTheme.content, "#f5f7fa");
 });
 test("manual preference persists and overrides the device until System is selected", () => {
   const f = fixture({ dark: true, saved: "light" });
   f.events.DOMContentLoaded();
   assert.equal(f.root.dataset.theme, "light");
+  assert.equal(f.browserTheme.content, "#f5f7fa");
   f.system.change();
   assert.equal(f.root.dataset.theme, "light");
+  assert.equal(f.browserTheme.content, "#f5f7fa");
   f.select.change({ target: { value: "dark" } });
   assert.equal(f.storage.get("reddit-lab-theme"), "dark");
   f.select.change({ target: { value: "system" } });
   f.system.matches = false;
   f.system.change();
   assert.equal(f.root.dataset.theme, "light");
+  assert.equal(f.browserTheme.content, "#f5f7fa");
 });
 test("denied storage, invalid preferences, and another tab clearing storage remain usable", () => {
   const f = fixture({ denied: true, dark: true });
   f.events.DOMContentLoaded();
   f.select.change({ target: { value: "light" } });
   assert.equal(f.root.dataset.theme, "light");
+  assert.equal(f.browserTheme.content, "#f5f7fa");
   f.windowEvents.storage({ key: null, newValue: null });
   assert.equal(f.root.dataset.theme, "dark");
+  assert.equal(f.browserTheme.content, "#101722");
   assert.equal(fixture({ saved: "invalid" }).root.dataset.theme, "light");
 });

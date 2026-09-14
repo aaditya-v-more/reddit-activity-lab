@@ -29,7 +29,7 @@ JavaScript · Web Workers · IndexedDB · Python · SQLite · Vercel
 - **Plan a posting experiment.** Follow recommendations back to their evidence and inspect the supporting posts.
 - **Pick up where you left off.** Dated starter summaries appear immediately; completed analyses stay on your device. Refresh, cancel, retry, or clear local data.
 
-IST by default, eight timezones, automatic light/dark mode, and a manual theme switch.
+IST by default, eight timezones, automatic light/dark mode, and a manual theme switch. On phones, bottom navigation, expandable filters, and post evidence cards keep the dashboard usable at small widths.
 
 <details>
 <summary><strong>See post-performance analysis in dark mode</strong></summary>

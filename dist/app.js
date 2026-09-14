@@ -49,6 +49,27 @@ const state = {
   eligibility: "all",
   window: null,
 };
+const phoneLayout = window.matchMedia("(max-width: 800px)");
+function setFiltersOpen(open, restoreFocus = false) {
+  $(".filter-panel").classList.toggle("is-open", open);
+  $("#filter-toggle").setAttribute(
+    "aria-expanded", String(open || !phoneLayout.matches),
+  );
+  if (restoreFocus && phoneLayout.matches)
+    $("#filter-toggle").focus({ preventScroll: true });
+}
+$("#filter-toggle").addEventListener("click", () => {
+  setFiltersOpen(!$(".filter-panel").classList.contains("is-open"));
+});
+phoneLayout.addEventListener("change", () => {
+  const focusedInside = $("#filter-fields").contains(document.activeElement);
+  setFiltersOpen(!phoneLayout.matches, focusedInside);
+});
+$("#filter-fields").addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !event.defaultPrevented && phoneLayout.matches)
+    setFiltersOpen(false, true);
+});
+setFiltersOpen(!phoneLayout.matches);
 function statCard(label, value, foot, icon) {
   return `<article class="stat"><div class="stat-label">${label}<span class="stat-icon" aria-hidden="true">${icon}</span></div><div class="stat-number">${value}</div><div class="stat-foot">${foot}</div></article>`;
 }
@@ -60,7 +81,7 @@ function heatmap() {
       authors: "meanAuthors",
     }[state.metric],
     max = Math.max(...r.heat.map((c) => c[key]), 1);
-  return `<section class="panel"><div class="panel-head"><div><h2>Activity by day and hour</h2><p>Average ${state.metric === "authors" ? "distinct participants per date/hour" : state.metric + " per hour"}. All times in ${esc(zoneLabel())}.</p></div><div class="segmented" aria-label="Heatmap metric">${["comments", "posts", "authors"].map((m) => `<button data-metric="${m}" class="${state.metric === m ? "active" : ""}" aria-pressed="${state.metric === m}">${m === "authors" ? "Participants" : m[0].toUpperCase() + m.slice(1)}</button>`).join("")}</div></div><div class="heat-scroll"><div class="heatmap"><span></span>${Array.from({ length: 24 }, (_, h) => `<span class="heat-hour">${h % 3 === 0 ? String(h).padStart(2, "0") : ""}</span>`).join("")}${DAYS.map(
+  return `<section class="panel"><div class="panel-head"><div><h2>Activity by day and hour</h2><p>Average ${state.metric === "authors" ? "distinct participants per date/hour" : state.metric + " per hour"}. All times in ${esc(zoneLabel())}.</p></div><div class="segmented" aria-label="Heatmap metric">${["comments", "posts", "authors"].map((m) => `<button data-metric="${m}" class="${state.metric === m ? "active" : ""}" aria-pressed="${state.metric === m}">${m === "authors" ? "Participants" : m[0].toUpperCase() + m.slice(1)}</button>`).join("")}</div></div><p class="scroll-hint">Swipe or use the arrows to explore all 24 hours.</p><div class="heat-paging" aria-label="Heatmap hours"><button class="button quiet" data-heat-scroll="-1" aria-label="Earlier hours" disabled>← Earlier hours</button><button class="button quiet" data-heat-scroll="1" aria-label="Later hours">Later hours →</button></div><div class="heat-scroll" tabindex="0" role="region" aria-label="Hourly activity heatmap, scroll horizontally for all hours"><div class="heatmap"><span></span>${Array.from({ length: 24 }, (_, h) => `<span class="heat-hour">${h % 3 === 0 ? String(h).padStart(2, "0") : ""}</span>`).join("")}${DAYS.map(
     (d, day) =>
       `<span class="heat-day">${d}</span>${r.heat
         .filter((c) => c.day === day)
@@ -71,7 +92,7 @@ function heatmap() {
         .join("")}`,
   ).join(
     "",
-  )}</div></div><div class="heat-meta"><span>Click a cell to inspect the activity and its posts</span><span class="legend">Quiet ${colors.map((c) => `<i style="background:${c}" aria-hidden="true"></i>`).join("")} Busy</span></div><div class="heat-detail" id="heat-detail">${cellDetail()}</div></section>`;
+  )}</div></div><div class="heat-meta"><span>Select a cell to inspect its activity and posts</span><span class="legend">Quiet ${colors.map((c) => `<i style="background:${c}" aria-hidden="true"></i>`).join("")} Busy</span></div><div class="heat-detail" id="heat-detail">${cellDetail()}</div></section>`;
 }
 function cellDetail() {
   const c = state.cell == null ? null : state.result.heat[state.cell];
@@ -100,7 +121,7 @@ function trend() {
       )
       .join(" ");
   const peak = [...r.daily].sort((a, b) => b.comments - a.comments)[0];
-  return `<section class="panel"><div class="panel-head"><div><h2>Conversations over time</h2><p>Daily comment volume · peaks can reflect releases, news, or a single popular thread.</p></div><div class="chart-key"><span><i class="key-line"></i>Comments</span></div></div><svg class="chart" viewBox="0 0 ${W} ${H + 10}" role="img" aria-label="Daily comments from ${r.start} to ${r.end}; highest ${n(peak.comments)} on ${peak.date}"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f18963" stop-opacity=".18"/><stop offset="100%" stop-color="#f18963" stop-opacity="0"/></linearGradient></defs>${[0, 0.5, 1].map((v) => `<line x1="0" x2="${W}" y1="${H - v * (H - 12)}" y2="${H - v * (H - 12)}" stroke="var(--line)" stroke-dasharray="3 5"/><text x="0" y="${H - v * (H - 12) - 4}" fill="var(--muted)" font-size="10">${n(Math.round(v * max))}</text>`).join("")}<polygon points="0,${H} ${points} ${W},${H}" fill="url(#area)"/><polyline points="${points}" fill="none" stroke="#eb7447" stroke-width="2.5" stroke-linejoin="round"/>${r.daily.map((d, i) => `<circle cx="${(i / (r.daily.length - 1 || 1)) * W}" cy="${H - (d.comments / max) * (H - 12)}" r="4" fill="transparent"><title>${d.date}: ${n(d.comments)} comments, ${n(d.posts)} posts, ${n(d.authors)} participants</title></circle>`).join("")}</svg><div class="chart-labels">${[0, Math.floor(r.daily.length / 3), Math.floor((r.daily.length * 2) / 3), r.daily.length - 1].map((i) => `<span>${shortDate(r.daily[i].date)}</span>`).join("")}</div><div class="insight-note"><span aria-hidden="true">↗</span><span><strong>${shortDate(peak.date)} was the busiest day</strong> with ${n(peak.comments)} comments. Compare weekly patterns before treating a spike as a posting rule.</span></div><details><summary>Accessible daily values</summary><div class="table-scroll"><table><thead><tr><th>Date</th><th>Comments</th><th>Posts</th><th>Distinct participants</th></tr></thead><tbody>${r.daily.map((d) => `<tr><td>${d.date}</td><td>${n(d.comments)}</td><td>${n(d.posts)}</td><td>${n(d.authors)}</td></tr>`).join("")}</tbody></table></div></details></section>`;
+  return `<section class="panel"><div class="panel-head"><div><h2>Conversations over time</h2><p>Daily comment volume · peaks can reflect releases, news, or a single popular thread.</p></div><div class="chart-key"><span><i class="key-line"></i>Comments</span></div></div><svg class="chart" preserveAspectRatio="none" viewBox="0 0 ${W} ${H + 10}" role="img" aria-label="Daily comments from ${r.start} to ${r.end}; highest ${n(peak.comments)} on ${peak.date}"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f18963" stop-opacity=".18"/><stop offset="100%" stop-color="#f18963" stop-opacity="0"/></linearGradient></defs>${[0, 0.5, 1].map((v) => `<line x1="0" x2="${W}" y1="${H - v * (H - 12)}" y2="${H - v * (H - 12)}" stroke="var(--line)" stroke-dasharray="3 5"/><text x="0" y="${H - v * (H - 12) - 4}" fill="var(--muted)" font-size="10">${n(Math.round(v * max))}</text>`).join("")}<polygon points="0,${H} ${points} ${W},${H}" fill="url(#area)"/><polyline points="${points}" fill="none" stroke="#eb7447" stroke-width="2.5" stroke-linejoin="round"/>${r.daily.map((d, i) => `<circle cx="${(i / (r.daily.length - 1 || 1)) * W}" cy="${H - (d.comments / max) * (H - 12)}" r="4" fill="transparent"><title>${d.date}: ${n(d.comments)} comments, ${n(d.posts)} posts, ${n(d.authors)} participants</title></circle>`).join("")}</svg><div class="chart-labels">${[0, Math.floor(r.daily.length / 3), Math.floor((r.daily.length * 2) / 3), r.daily.length - 1].map((i) => `<span>${shortDate(r.daily[i].date)}</span>`).join("")}</div><div class="insight-note"><span aria-hidden="true">↗</span><span><strong>${shortDate(peak.date)} was the busiest day</strong> with ${n(peak.comments)} comments. Compare weekly patterns before treating a spike as a posting rule.</span></div><details><summary>Accessible daily values</summary><div class="table-scroll"><table><thead><tr><th>Date</th><th>Comments</th><th>Posts</th><th>Distinct participants</th></tr></thead><tbody>${r.daily.map((d) => `<tr><td>${d.date}</td><td>${n(d.comments)}</td><td>${n(d.posts)}</td><td>${n(d.authors)}</td></tr>`).join("")}</tbody></table></div></details></section>`;
 }
 function overview() {
   const r = state.result;
@@ -131,6 +152,13 @@ const viewTitles = {
 function render() {
   const r = state.result;
   if (!r) return;
+  $("#filter-community").textContent = `r/${state.data.subreddit}`;
+  if (r.start && r.end) {
+    const shortZone = new Intl.DateTimeFormat("en", {
+      timeZone: r.zone, timeZoneName: "short",
+    }).formatToParts(new Date(`${r.end}T12:00:00Z`)).find((part) => part.type === "timeZoneName")?.value;
+    $("#filter-dates").textContent = `${shortDate(r.start)}–${shortDate(r.end)} ${r.end.slice(0, 4)} · ${r.zone === "Asia/Kolkata" ? "IST" : shortZone || r.zone}`;
+  } else $("#filter-dates").textContent = "Choose dates with complete coverage";
   const title = viewTitles[state.view];
   $("#page-title").textContent = title[0];
   $("#page-description").textContent = title[1];
@@ -167,10 +195,28 @@ function render() {
           : state.view === "posts"
             ? postsView()
             : methodology();
+  const heatScroll = $(".heat-scroll");
+  if (heatScroll) {
+    heatScroll.addEventListener("scroll", updateHeatArrows, { passive: true });
+    requestAnimationFrame(updateHeatArrows);
+  }
+  document.querySelectorAll(".table-scroll").forEach((region) => {
+    region.tabIndex = 0;
+    region.setAttribute("role", "region");
+    region.setAttribute("aria-label", `${region.closest(".panel")?.querySelector("h2")?.textContent || "Data table"}${region.classList.contains("post-list") ? "" : ", scroll horizontally for all columns"}`);
+  });
 }
+function updateHeatArrows() {
+  const region = $(".heat-scroll");
+  if (!region) return;
+  $('[data-heat-scroll="-1"]').disabled = region.scrollLeft <= 1;
+  $('[data-heat-scroll="1"]').disabled = region.scrollLeft + region.clientWidth >= region.scrollWidth - 1;
+}
+window.addEventListener("resize", updateHeatArrows);
 function showView(view) {
   state.view = view;
   render();
+  $("#main").focus({ preventScroll: true });
   window.scrollTo({ top: 0, left: 0, behavior: "instant" });
 }
 const workerUrl = new URL("./archive-worker.js", import.meta.url);
@@ -458,13 +504,24 @@ document.addEventListener("click", (e) => {
   if (b.dataset.view) {
     showView(b.dataset.view);
   }
+  if (b.dataset.heatScroll) {
+    const region = $(".heat-scroll");
+    const step = Math.max(48, Math.floor((region.clientWidth - 38) / 48) * 48);
+    region.scrollBy({ left: Number(b.dataset.heatScroll) * step, behavior: "instant" });
+    updateHeatArrows();
+  }
   if (b.dataset.metric) {
+    const offset = $(".heat-scroll")?.scrollLeft || 0;
     state.metric = b.dataset.metric;
     render();
+    $(".heat-scroll").scrollLeft = offset;
+    document.querySelector(`[data-metric="${state.metric}"]`).focus({ preventScroll: true });
   }
   if (b.dataset.cell !== undefined) {
     state.cell = Number(b.dataset.cell);
-    render();
+    document.querySelector(".heat-cell.selected")?.classList.remove("selected");
+    b.classList.add("selected");
+    $("#heat-detail").innerHTML = cellDetail();
   }
   if (b.id === "cell-posts") {
     state.page = 0;
@@ -482,6 +539,7 @@ document.addEventListener("click", (e) => {
 });
 $("#filters").addEventListener("submit", (e) => {
   e.preventDefault();
+  setFiltersOpen(false, true);
   load();
 });
 function changeSelection() {
@@ -808,7 +866,7 @@ function postsView() {
     pages = Math.ceil(p.length / 25);
   state.page = Math.min(state.page, Math.max(0, pages - 1));
   const shown = p.slice(state.page * 25, (state.page + 1) * 25);
-  return `<section class="panel"><div class="panel-head"><div><h2>Inspect the evidence</h2><p>${n(p.length)} matching posts · public archive scores may differ from current Reddit scores.</p></div><button class="button" id="clear-post-filters">Clear post filters</button></div>${state.cell != null ? `<p class="small">Filtered to ${DAYS[Math.floor(state.cell / 24)]} ${hr(state.cell % 24)}–${hr((state.cell % 24) + 1)}.</p>` : ""}${state.window != null ? `<p class="small">Filtered to ${hr(state.window * 4)}–${hr((state.window + 1) * 4)} across the week.</p>` : ""}<form class="table-controls" id="post-form"><input type="search" id="post-search" aria-label="Search post titles" placeholder="Search post titles…" value="${esc(state.search)}"><select id="eligibility" aria-label="Analysis eligibility"><option value="all" ${state.eligibility === "all" ? "selected" : ""}>All archived posts</option><option value="eligible" ${state.eligibility === "eligible" ? "selected" : ""}>Eligible for performance</option><option value="excluded" ${state.eligibility === "excluded" ? "selected" : ""}>Excluded from performance</option></select><select id="post-sort" aria-label="Sort posts"><option value="score" ${state.postSort === "score" ? "selected" : ""}>Highest score</option><option value="comments" ${state.postSort === "comments" ? "selected" : ""}>Most comments</option><option value="newest" ${state.postSort === "newest" ? "selected" : ""}>Newest submitted</option></select><button class="button">Search</button></form>${shown.length ? `<div class="table-scroll"><table><thead><tr><th>Post</th><th>Submitted · ${esc(zoneLabel())}</th><th>Net score</th><th>Comments</th><th>Snapshot age</th><th>Performance eligibility</th></tr></thead><tbody>${shown.map((p) => `<tr><td class="post-title"><a href="https://www.reddit.com/r/${encodeURIComponent(state.data.subreddit)}/comments/${encodeURIComponent(p.id)}/" target="_blank" rel="noopener noreferrer">${esc(p.title)} ↗</a><small>${esc(p.flair || "No flair")} · ${esc(p.id)}</small></td><td>${p.date}<br>${new Intl.DateTimeFormat("en-GB", { timeZone: state.result.zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(p.t * 1000)}</td><td>${n(p.score)}</td><td>${n(p.comments)}</td><td>${p.age == null ? "Unknown" : `${p.age.toFixed(2)}h`}<small class="small">${p.snapshotAt ? `<br>${new Date(p.snapshotAt * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}` : ""}</small></td><td><span class="pill ${p.excluded ? "muted-warning" : ""}">${esc(p.excluded || "Eligible")}</span></td></tr>`).join("")}</tbody></table></div><div class="pagination"><span>Page ${state.page + 1} of ${pages} · 25 per page</span><div class="buttons"><button class="button" data-page="-1" ${state.page === 0 ? "disabled" : ""}>Previous</button><button class="button" data-page="1" ${state.page >= pages - 1 ? "disabled" : ""}>Next</button></div></div>` : '<div class="empty-state"><h3>No matching posts</h3><p>Try a broader search or clear the post filters.</p></div>'}</section>`;
+  return `<section class="panel"><div class="panel-head"><div><h2>Inspect the evidence</h2><p>${n(p.length)} matching posts · public archive scores may differ from current Reddit scores.</p></div><button class="button" id="clear-post-filters">Clear post filters</button></div>${state.cell != null ? `<p class="small">Filtered to ${DAYS[Math.floor(state.cell / 24)]} ${hr(state.cell % 24)}–${hr((state.cell % 24) + 1)}.</p>` : ""}${state.window != null ? `<p class="small">Filtered to ${hr(state.window * 4)}–${hr((state.window + 1) * 4)} across the week.</p>` : ""}<form class="table-controls" id="post-form"><input type="search" id="post-search" aria-label="Search post titles" placeholder="Search post titles…" value="${esc(state.search)}"><select id="eligibility" aria-label="Analysis eligibility"><option value="all" ${state.eligibility === "all" ? "selected" : ""}>All archived posts</option><option value="eligible" ${state.eligibility === "eligible" ? "selected" : ""}>Eligible for performance</option><option value="excluded" ${state.eligibility === "excluded" ? "selected" : ""}>Excluded from performance</option></select><select id="post-sort" aria-label="Sort posts"><option value="score" ${state.postSort === "score" ? "selected" : ""}>Highest score</option><option value="comments" ${state.postSort === "comments" ? "selected" : ""}>Most comments</option><option value="newest" ${state.postSort === "newest" ? "selected" : ""}>Newest submitted</option></select><button class="button">Search</button></form>${shown.length ? `<div class="table-scroll post-list"><table class="post-table" role="table"><thead><tr><th>Post</th><th>Submitted · ${esc(zoneLabel())}</th><th>Net score</th><th>Comments</th><th>Snapshot age</th><th>Performance eligibility</th></tr></thead><tbody role="rowgroup">${shown.map((p) => `<tr role="row"><td class="post-title" role="cell"><a href="https://www.reddit.com/r/${encodeURIComponent(state.data.subreddit)}/comments/${encodeURIComponent(p.id)}/" target="_blank" rel="noopener noreferrer">${esc(p.title)} ↗</a><small>${esc(p.flair || "No flair")} · ${esc(p.id)}</small></td><td role="cell" data-label="Submitted">${p.date}<br>${new Intl.DateTimeFormat("en-GB", { timeZone: state.result.zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(p.t * 1000)}</td><td role="cell" data-label="Net score">${n(p.score)}</td><td role="cell" data-label="Comments">${n(p.comments)}</td><td role="cell" data-label="Snapshot age">${p.age == null ? "Unknown" : `${p.age.toFixed(2)}h`}<small class="small">${p.snapshotAt ? `<br>${new Date(p.snapshotAt * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}` : ""}</small></td><td role="cell" data-label="Performance eligibility"><span class="pill ${p.excluded ? "muted-warning" : ""}">${esc(p.excluded || "Eligible")}</span></td></tr>`).join("")}</tbody></table></div><div class="pagination"><span>Page ${state.page + 1} of ${pages} · 25 per page</span><div class="buttons"><button class="button" data-page="-1" ${state.page === 0 ? "disabled" : ""}>Previous</button><button class="button" data-page="1" ${state.page >= pages - 1 ? "disabled" : ""}>Next</button></div></div>` : '<div class="empty-state"><h3>No matching posts</h3><p>Try a broader search or clear the post filters.</p></div>'}</section>`;
 }
 function currentMethodology() {
   const d = state.data;
@@ -903,6 +961,9 @@ document.addEventListener("click", (e) => {
   if (b.dataset.page) {
     state.page += Number(b.dataset.page);
     render();
+    const list = $(".post-list");
+    list?.focus({ preventScroll: true });
+    list?.scrollIntoView({ block: "start", behavior: "instant" });
   }
   if (b.id === "clear-post-filters") {
     state.search = "";

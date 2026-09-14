@@ -16,6 +16,9 @@
           ? "dark"
           : "light"
         : preference;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      "content", root.dataset.theme === "dark" ? "#101722" : "#f5f7fa",
+    );
     const select = document.querySelector("#theme");
     if (select) select.value = preference;
   }
