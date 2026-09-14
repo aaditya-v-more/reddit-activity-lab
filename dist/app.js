@@ -1,6 +1,7 @@
 import { analyze, DAYS, median, localParts } from "./analysis.js";
 import { BOTS, addDays, subredditName } from "./archive.js";
 import { createSubredditPicker } from "./subreddit-picker.js";
+import { deviceZone, preferredZone, saveZone } from "./timezone.js";
 const $ = (s) => document.querySelector(s);
 const n = (x) =>
   x == null
@@ -26,7 +27,22 @@ const shortDate = (d) =>
 const zoneLabel = () =>
   [...$("#timezone").options].find(
     (o) => o.value === (state.result?.zone || $("#timezone").value),
-  )?.textContent || $("#timezone").value;
+  )?.textContent || state.result?.zone || $("#timezone").value;
+let zoneStorage;
+try { zoneStorage = window.localStorage; } catch {}
+let timezonePreference = preferredZone(zoneStorage);
+function selectZone(zone) {
+  if (![...$("#timezone").options].some((option) => option.value === zone))
+    $("#timezone").add(new Option(zone.replaceAll("_", " "), zone));
+  $("#timezone").value = zone;
+}
+function timezoneHint() {
+  const selected = $("#timezone").value;
+  const mismatch = state.result && state.result.zone !== selected;
+  $("#timezone-help").textContent = `${timezonePreference.manual ? "Your saved choice" : "Detected from this device"}: ${timezonePreference.zone}.` +
+    (mismatch ? ` Showing saved data in ${state.result.zone}. Apply filters to analyze in ${selected}.` : "");
+}
+selectZone(timezonePreference.zone);
 const colors = Array.from({ length: 8 }, (_, i) => `var(--heat-${i})`);
 const state = {
   mode: "archive",
@@ -557,7 +573,19 @@ function changeSelection() {
   state.selectionEpoch++;
   load();
 }
-$("#timezone").addEventListener("change", changeSelection);
+$("#timezone").addEventListener("change", () => {
+  timezonePreference = { zone: $("#timezone").value, manual: true };
+  saveZone(zoneStorage, timezonePreference.zone);
+  timezoneHint();
+  changeSelection();
+});
+$("#detect-timezone").addEventListener("click", () => {
+  timezonePreference = { zone: deviceZone(), manual: false };
+  saveZone(zoneStorage, null);
+  selectZone(timezonePreference.zone);
+  timezoneHint();
+  changeSelection();
+});
 async function remember(snapshot) {
   const saved = await job("remember", { snapshot }).promise.catch(() => false);
   $("#saved-status").textContent = saved
@@ -573,7 +601,7 @@ function adoptSnapshot(snapshot, restoreFilters = true) {
   state.window = null;
   if (restoreFilters) {
     $("#community").value = state.data.subreddit;
-    $("#timezone").value = state.result.zone;
+    selectZone(state.result.zone);
     $("#start").value = state.result.start;
     $("#end").value = state.result.end;
   }
@@ -584,6 +612,7 @@ function adoptSnapshot(snapshot, restoreFilters = true) {
 }
 function showSnapshotFreshness() {
   if (!state.data || !state.result) return;
+  timezoneHint();
   const { start, end, zone } = state.result;
   const label = state.data.mode === "starter" ? "Included summary" : "Saved analysis";
   const fetchedAt = state.data.coverage.fetchedAtMax;
@@ -638,12 +667,15 @@ async function init() {
   const embedded = $("#starter-bootstrap");
   if (embedded) {
     try {
-      const { manifest, snapshot: data } = JSON.parse(embedded.textContent);
+      const { manifest, snapshot: fallback, snapshots = [] } = JSON.parse(embedded.textContent);
+      const data = snapshots.find((item) => item.result.zone === timezonePreference.zone) || fallback;
       state.starterManifest = manifest;
       const snapshot = starterSnapshot(data);
       const entry = manifest.entries.find((item) => item.subreddit === data.subreddit && item.zone === data.result.zone);
       if (entry) state.starterCache.set(entry.file, snapshot);
       adoptSnapshot(snapshot);
+      selectZone(timezonePreference.zone);
+      timezoneHint();
     } catch { /* A static-file preview can fall back to the published JSON. */ }
   }
   const lastSaved = job("restore", {}).promise.catch(() => null);
@@ -653,6 +685,8 @@ async function init() {
   if (epoch !== state.selectionEpoch) return;
   if (saved) {
     adoptSnapshot(saved);
+    selectZone(timezonePreference.zone);
+    timezoneHint();
     $("#saved-status").textContent =
       "Restored from this device · retained until you clear local data";
   } else if (state.result)
@@ -732,7 +766,7 @@ document.addEventListener("click", (e) => {
     $("#start").value = state.result.start;
     $("#end").value = state.result.end;
     $("#community").value = state.data.subreddit;
-    $("#timezone").value = state.result.zone;
+    selectZone(state.result.zone);
     load(true);
   }
   if (b.id === "clear-local-data" || b.id === "clear-browser-cache")

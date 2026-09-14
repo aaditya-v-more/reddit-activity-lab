@@ -28,7 +28,6 @@ export function wilson(k, n, z = 1.95996398454) {
 }
 const formatters = new Map();
 export function localParts(t, zone) {
-  if (!ZONES.includes(zone)) throw new Error("Unsupported timezone");
   if (!formatters.has(zone))
     formatters.set(
       zone,

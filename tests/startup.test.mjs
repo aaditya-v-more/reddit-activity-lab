@@ -4,6 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import { analyze, DAYS, median, localParts } from "../dist/analysis.js";
 import { BOTS, addDays, subredditName } from "../dist/archive.js";
+import { preferredZone, saveZone } from "../dist/timezone.js";
 import { inlineStarter } from "../scripts/starter-page.mjs";
 
 const html = inlineStarter(fs.readFileSync(new URL("../dist/index.html", import.meta.url), "utf8"));
@@ -20,7 +21,7 @@ const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(setIm
 
 // Exercise the actual page controller with browser storage/worker boundaries mocked.
 // No source records, external requests, or browser profile access are needed.
-function page({ saved = null, delayRestore = false, storageError = false } = {}) {
+function page({ saved = null, delayRestore = false, storageError = false, detected = "Asia/Kolkata", preference = null } = {}) {
   const elements = new Map(), documentEvents = {}, workerActions = [], http = [], timers = [];
   function element(selector) {
     if (!elements.has(selector)) {
@@ -31,6 +32,7 @@ function page({ saved = null, delayRestore = false, storageError = false } = {})
         classList: { toggle(name, yes) { yes ? classes.add(name) : classes.delete(name); }, contains(name) { return classes.has(name); }, remove(name) { classes.delete(name); }, add(name) { classes.add(name); } },
         setAttribute(name, value) { this.attributes[name] = value; },
         addEventListener(name, fn) { (this.listeners[name] ||= []).push(fn); },
+        add(option) { this.options.push(option); },
         focus() {}, contains() { return false; },
       });
     }
@@ -67,10 +69,12 @@ function page({ saved = null, delayRestore = false, storageError = false } = {})
     addEventListener(name, fn) { (documentEvents[name] ||= []).push(fn); },
   };
   vm.runInNewContext(app, {
+    deviceZone: () => detected, preferredZone: (storage) => preferredZone(storage, detected), saveZone,
+    Option: function(textContent, value) { return { textContent, value }; },
     document, Worker, URL, analyze, DAYS, median, localParts, BOTS, addDays, subredditName,
     createSubredditPicker: () => ({ clearRecent() {} }),
     navigator: { storage: { persist: () => Promise.resolve(true) } },
-    window: { matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener() {}, scrollTo() {} },
+    window: { localStorage: { getItem: () => preference, setItem: (key, value) => { preference = value; }, removeItem: () => { preference = null; } }, matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener() {}, scrollTo() {} },
     fetch: async (url) => { http.push(url); throw new Error("Unexpected HTTP request during startup"); },
     requestAnimationFrame: (fn) => fn(),
     setInterval: (fn) => { timers.push(fn); return timers.length; }, clearInterval() {}, setTimeout,
@@ -150,4 +154,34 @@ test("unchanged filters reuse the visible analysis; changed dates start a reques
   const loads = p.workerActions.filter((x) => x.action === "load");
   assert.equal(loads.length, 1);
   assert.equal(loads[0].options.start, "2026-09-05");
+});
+
+
+test("device timezone selects an embedded matching summary without archive requests", async () => {
+  const p = page({ detected: "America/New_York" }); await flush();
+  assert.equal(p.element("#timezone").value, "America/New_York");
+  assert.match(p.element("#timezone-help").textContent, /Detected from this device: America\/New_York/);
+  assert.doesNotMatch(p.element("#timezone-help").textContent, /Showing saved data/);
+  assert.equal(p.workerActions.filter((x) => x.action === "load").length, 0);
+  assert.equal(p.http.length, 0);
+});
+test("an unbundled device zone stays selected with honestly labelled starter data", async () => {
+  const p = page({ detected: "Asia/Kathmandu" }); await flush();
+  assert.equal(p.element("#timezone").value, "Asia/Kathmandu");
+  assert.match(p.element("#timezone-help").textContent, /Showing saved data in Asia\/Kolkata/);
+  assert.equal(p.workerActions.filter((x) => x.action === "load").length, 0);
+});
+test("manual preference wins over detection and a different saved analysis", async () => {
+  const p = page({ detected: "America/New_York", preference: "Europe/Berlin", saved: snapshot() }); await flush();
+  assert.equal(p.element("#timezone").value, "Europe/Berlin");
+  assert.match(p.element("#timezone-help").textContent, /Your saved choice: Europe\/Berlin/);
+  assert.equal(p.workerActions.filter((x) => x.action === "load").length, 0);
+});
+test("Use device timezone resets a manual preference and requests the user-selected zone", async () => {
+  const p = page({ detected: "Asia/Kathmandu", preference: "Europe/Berlin" }); await flush();
+  p.element("#detect-timezone").listeners.click[0](); await flush();
+  assert.match(p.element("#timezone-help").textContent, /Detected from this device: Asia\/Kathmandu/);
+  const loads = p.workerActions.filter((x) => x.action === "load");
+  assert.equal(loads.length, 1);
+  assert.equal(loads[0].options.zone, "Asia/Kathmandu");
 });

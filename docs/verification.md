@@ -73,3 +73,9 @@ The default r/ollama IST summary is embedded into the HTML at build time. Startu
 Seven controller regression tests exercise fresh visits, older saved analyses, idle time and view changes, storage failure, late cache restoration after user input, explicit refresh, and changed versus unchanged filters. They record worker actions and HTTP calls: startup performs only local restore/remember actions, with no load, pulse, discovery, or JSON requests when the embedded summary is present. The local preview test also checks the embedded payload. Total: 56 passing tests with local exports, or 55 passing and one integration skip without them.
 
 A browser check on a fresh localhost origin displayed the included 6–12 September r/ollama analysis with no acquisition panel. Switching to Post performance retained the summary; reloading restored it from the device without starting an update. Source freshness text now describes the displayed snapshot instead of retaining another community's starter label.
+
+### Device timezone detection
+
+The browser's IANA timezone initializes the selector, with a locally saved manual choice taking precedence. “Use device timezone” clears that override. Eight public starter variants are embedded so common device timezones render immediately without archive acquisition. Other zones retain the included or saved analysis with its original timezone explicitly labelled until a user requests new analysis. Saved analyses are never relabelled as a different timezone.
+
+Regression coverage verifies detection, stored choices, blocked storage, explicit reset, quarter-hour date boundaries, daylight saving in a previously unsupported zone, and zero startup archive requests for both bundled and unbundled timezones.

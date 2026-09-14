@@ -17,6 +17,7 @@ const files = [
   "archive.js",
   "archive-worker.js",
   "theme.js",
+  "timezone.js",
   "subreddit-picker.js",
 ];
 for (const file of files)
