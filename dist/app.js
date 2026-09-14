@@ -35,7 +35,6 @@ const state = {
   starterCache: new Map(),
   studyManifest: null,
   loading: false,
-  lastAnalysisCheck: 0,
   view: "overview",
   metric: "comments",
   data: null,
@@ -303,7 +302,7 @@ async function refreshPulse() {
     )
       return;
     $("#freshness").innerHTML =
-      `<span><strong>Latest archived post</strong> ${moment(pulse.posts?.createdAt)}</span><span><strong>Latest archived comment</strong> ${moment(pulse.comments?.createdAt)}</span><span>Checked ${moment(Date.parse(pulse.checkedAt) / 1000)} · ${esc(zoneLabel())}</span><span class="freshness-note">Creation times of the newest records returned, not online-user counts. Polls every 5 minutes while visible; archive delays still apply.</span>`;
+      `<span><strong>Latest archived post</strong> ${moment(pulse.posts?.createdAt)}</span><span><strong>Latest archived comment</strong> ${moment(pulse.comments?.createdAt)}</span><span>Checked ${moment(Date.parse(pulse.checkedAt) / 1000)} · ${esc(zoneLabel())}</span><span class="freshness-note">Creation times of the newest records returned, not online-user counts. Checked after your update; archive delays still apply.</span>`;
   } catch (error) {
     if (ticket !== load.ticket || error.cancelled) return;
     $("#freshness").textContent =
@@ -315,6 +314,15 @@ async function refreshPulse() {
 }
 async function load(force = false) {
   if (typeof force !== "boolean") force = false;
+  if (
+    !force && !state.loading && state.mode === "archive" && state.result &&
+    state.data.subreddit.toLowerCase() === $("#community").value.trim().replace(/^r\//i, "").toLowerCase() &&
+    state.result.start === $("#start").value && state.result.end === $("#end").value &&
+    state.result.zone === $("#timezone").value
+  ) {
+    showSnapshotFreshness();
+    return { ok: true, cached: true };
+  }
   const ticket = ++load.ticket;
   if (activeLoad) worker.postMessage({ action: "cancel", target: activeLoad });
   if (pulseJob) worker.postMessage({ action: "cancel", target: pulseJob });
@@ -463,7 +471,6 @@ async function load(force = false) {
     state.page = 0;
     state.cell = null;
     state.window = null;
-    state.lastAnalysisCheck = Date.now();
     render();
     $("#load-panel").hidden = true;
     await remember({ dataset: data, analysis: result });
@@ -527,7 +534,7 @@ document.addEventListener("click", (e) => {
     state.page = 0;
     showView("posts");
   }
-  if (b.id === "retry") load();
+  if (b.id === "retry") load(true);
   if (b.id === "reset-dates") {
     $("#start").value = state.manifest.defaultStart;
     $("#end").value = state.manifest.defaultEnd;
@@ -537,8 +544,12 @@ document.addEventListener("click", (e) => {
     showView("methodology");
   }
 });
+$("#filters").addEventListener("input", () => {
+  state.selectionEpoch++;
+});
 $("#filters").addEventListener("submit", (e) => {
   e.preventDefault();
+  state.selectionEpoch++;
   setFiltersOpen(false, true);
   load();
 });
@@ -569,6 +580,26 @@ function adoptSnapshot(snapshot, restoreFilters = true) {
   if (state.data.mode !== "starter")
     state.cache.set(state.data.subreddit, state.data);
   render();
+  showSnapshotFreshness();
+}
+function showSnapshotFreshness() {
+  if (!state.data || !state.result) return;
+  const { start, end, zone } = state.result;
+  const label = state.data.mode === "starter" ? "Included summary" : "Saved analysis";
+  const fetchedAt = state.data.coverage.fetchedAtMax;
+  const collected = fetchedAt ? ` · acquired ${new Date(fetchedAt).toLocaleString("en-GB", {
+    timeZone: zone, day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+  })}` : "";
+  $("#freshness").textContent = `${label} · r/${state.data.subreddit} · ${start}–${end}${collected}. Updates start when you change the analysis or choose Refresh data.`;
+}
+function starterSnapshot(d) {
+  return {
+    dataset: {
+      mode: "starter", subreddit: d.subreddit, coverage: d.coverage,
+      audit: d.audit, ledger: d.ledger, posts: [], zones: {},
+    },
+    analysis: { ...d.result, posts: [], eligible: [] },
+  };
 }
 async function showStarter(
   name = "ollama",
@@ -591,33 +622,33 @@ async function showStarter(
     const res = await fetch(`/starter/${encodeURIComponent(entry.file)}`);
     if (!res.ok) return false;
     const d = await res.json();
-    snapshot = {
-      dataset: {
-        mode: "starter",
-        subreddit: d.subreddit,
-        coverage: d.coverage,
-        audit: d.audit,
-        ledger: d.ledger,
-        posts: [],
-        zones: {},
-      },
-      analysis: { ...d.result, posts: [], eligible: [] },
-    };
+    snapshot = starterSnapshot(d);
     state.starterCache.set(entry.file, snapshot);
   }
   if (epoch !== state.selectionEpoch) return false;
   adoptSnapshot(snapshot, restoreFilters);
   if (save) await remember(snapshot);
-  $("#freshness").textContent =
-    `Starter snapshot · ${snapshot.analysis.start}–${snapshot.analysis.end} · acquired ${moment(Date.parse(snapshot.dataset.coverage.fetchedAtMax) / 1000)} (${zoneLabel()}). Refresh data to check for newer observations.`;
   return true;
 }
 async function init() {
   const epoch = state.selectionEpoch;
   setRecent();
   state.manifest = liveManifest();
+  // The HTML contains real aggregate data, so first paint needs no archive request.
+  const embedded = $("#starter-bootstrap");
+  if (embedded) {
+    try {
+      const { manifest, snapshot: data } = JSON.parse(embedded.textContent);
+      state.starterManifest = manifest;
+      const snapshot = starterSnapshot(data);
+      const entry = manifest.entries.find((item) => item.subreddit === data.subreddit && item.zone === data.result.zone);
+      if (entry) state.starterCache.set(entry.file, snapshot);
+      adoptSnapshot(snapshot);
+    } catch { /* A static-file preview can fall back to the published JSON. */ }
+  }
   const lastSaved = job("restore", {}).promise.catch(() => null);
-  await showStarter("ollama", $("#timezone").value, false).catch(() => false);
+  if (!state.result)
+    await showStarter("ollama", $("#timezone").value, false).catch(() => false);
   const saved = await lastSaved;
   if (epoch !== state.selectionEpoch) return;
   if (saved) {
@@ -635,8 +666,7 @@ async function init() {
       }
     } catch {}
   }
-  // The saved snapshot is immediately useful. Updates run while it stays visible.
-  if (epoch === state.selectionEpoch) await load();
+  // Opening or revisiting the page never starts acquisition or freshness polling.
 }
 
 const communityPicker = createSubredditPicker({
@@ -735,18 +765,6 @@ document.addEventListener("click", (e) => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 });
-setInterval(() => {
-  if (
-    document.hidden ||
-    !$("#auto-refresh").checked ||
-    state.mode !== "archive" ||
-    state.loading
-  )
-    return;
-  refreshPulse();
-  if (state.result && Date.now() - state.lastAnalysisCheck >= 15 * 60000)
-    load();
-}, 5 * 60000);
 window.addEventListener("pagehide", (event) => {
   if (!event.persisted) worker.terminate();
 });
@@ -873,7 +891,7 @@ function currentMethodology() {
   return `<div class="notice"><strong>An archive-backed study, not a live audience counter.</strong> Recent record timestamps show source freshness. Historical analysis uses completed local days and eligible score snapshots.</div><div class="method-grid">
   <section class="panel prose"><h2>What each metric means</h2><ul><li><strong>Activity:</strong> posts and comments created during the selected interval. Known bots are excluded; captured removed content still contributes to volume.</li><li><strong>Participants:</strong> distinct available authors within a date/hour or local day. Deleted or missing authors are excluded. Counts across hours cannot be added to obtain unique daily people.</li><li><strong>Score:</strong> net voting, not an exact upvote count. No online-user counts, silent readership, weekly visitors, or private views are measured.</li></ul></section>
   <section class="panel prose"><h2>Any covered subreddit, within a bounded interval</h2><p>The browser acquires actual records from Arctic Shift, using the site’s relay when a direct connection fails. No Reddit login is used. A subreddit can be entered even when the provider's infrequently updated discovery directory does not list it.</p><p>Each run is bounded to 93 days, 200,000 records, and 350 source requests. Very busy communities need shorter ranges. Every page must be exhausted before a day's data is used; failed or capped acquisitions never become sampled findings.</p><p>This makes arbitrary communities accessible without hosting an all-Reddit database. It does not establish complete Reddit coverage.</p></section>
-  <section class="panel prose"><h2>Freshness and caching</h2><p>Latest post and comment timestamps are checked every 5 minutes while this tab is visible and auto-refresh is enabled. Analysis is checked every 15 minutes. The most recent three days have a 15-minute cache; older completed days expire after seven days. “Refresh data” bypasses those caches.</p><p>Polling is not a webhook: an update can arrive between checks, and archive processing may be delayed. The current day is incomplete and excluded from timing comparisons. The provider usually refreshes post outcomes roughly 36 hours after creation.</p><p>Oldest included day-cache retrieval: <strong>${moment(Date.parse(d.coverage.fetchedAtMin) / 1000)}</strong>. Newest: <strong>${moment(Date.parse(d.coverage.fetchedAtMax) / 1000)}</strong>, ${esc(zoneLabel())}.</p></section>
+  <section class="panel prose"><h2>Freshness and caching</h2><p>The site opens with an included historical summary or your last saved analysis. Opening the page, switching views, and leaving the tab open do not contact the archive. Change the community, dates, or timezone, or choose “Refresh data”, to request an update. Latest post and comment timestamps are checked after that update.</p><p>Saved analyses stay on this device until cleared. During a requested acquisition, day caches older than 15 minutes for recent dates or seven days for older dates are eligible for refresh; “Refresh data” bypasses them. There is no background polling. The current day is excluded, and archive processing may be delayed. The provider usually refreshes post outcomes roughly 36 hours after creation.</p><p>Oldest included day-cache retrieval: <strong>${moment(Date.parse(d.coverage.fetchedAtMin) / 1000)}</strong>. Newest: <strong>${moment(Date.parse(d.coverage.fetchedAtMax) / 1000)}</strong>, ${esc(zoneLabel())}.</p></section>
   <section class="panel prose"><h2>Comparable outcomes</h2><p>Only posts with a recorded second snapshot age between 35 and 40 hours enter performance comparisons. Removed/deleted, pinned, known-bot, and missing-outcome posts are excluded. Restoration metadata overrides stale initial moderation fields; explicit later removal wins.</p><p>Recent posts without a mature snapshot count toward activity but not performance. Download time is not score measurement time; these are neither final outcomes nor first-24-hour measurements.</p></section>
   <section class="panel prose"><h2>Success and uncertainty</h2><p>Descriptive success is score at or above the rounded-up 75th percentile for eligible posts from that community and selected month, at least 1. Ties can make more than 25% successful.</p><p>The candidate threshold is fitted only on the earlier half and frozen for the later half. Six four-hour windows are compared using the first-half Wilson lower bound; a candidate needs 20 posts per half and four represented weeks. Later-half differences use 1,000 calendar-week bootstrap samples when at least three weeks are available.</p><p>Multiple comparisons, sparse groups, partial weeks, content, topic, flair, moderation, growth, and events limit interpretation. These are observational associations, not promises that changing time causes better results.</p></section>
   <section class="panel prose"><h2>Data footprint and reproducibility</h2><p>${n(d.audit.records)} records acquired: ${n(d.audit.posts)} posts and ${n(d.audit.comments)} comments. ${n(d.audit.knownBotRecords)} known-bot records, ${n(d.audit.unattributedRecords)} records without an attributable author, and ${n(d.audit.removedPosts)} removed/deleted posts. ${n(d.audit.eligiblePosts)} posts have eligible performance measurements.</p><p>Author names exist transiently in the acquisition worker for distinct counting. Only anonymous aggregates, redacted post evidence, request URLs, hashes, and retrieval timestamps are cached in this browser. There are no author timelines or third-party analytics logs. Completed days and analyses are kept until you clear local data. Freshness checks do not delete old data. Persistent storage is requested when supported; browser storage limits, private browsing, or clearing site data can still remove it. If space runs out, existing analyses are kept and a save warning is shown.</p><button class="button quiet" id="download-provenance">Download request provenance</button> <button class="button quiet" id="clear-browser-cache">Clear browser cache</button></section>

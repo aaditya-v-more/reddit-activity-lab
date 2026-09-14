@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import archiveHandler from "../api/archive.js";
+import { inlineStarter } from "./starter-page.mjs";
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -56,8 +57,7 @@ export function developmentHandler(relay = archiveHandler) {
       let content = await readFile(path.join(root, name));
       if (name === "/index.html")
         content = Buffer.from(
-          content
-            .toString()
+          inlineStarter(content.toString())
             .replace('data-archive-relay="false"', 'data-archive-relay="true"'),
         );
       res.setHeader(

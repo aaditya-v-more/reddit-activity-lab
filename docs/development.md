@@ -15,7 +15,7 @@ npm run dev
 
 Open [localhost:4317](http://127.0.0.1:4317). The development server runs the same scoped relay as production. Set `REDDIT_LAB_PORT` to use another port.
 
-The dashboard opens with a dated starter analysis or the device's last saved result. Choose a subreddit, inclusive local dates, and a timezone to acquire another interval. Start with seven days, or one day for very active communities. First acquisitions can take minutes; completed days are reusable. The current local day is excluded.
+The initial HTML embeds a dated starter analysis and the dashboard restores the device's last saved result when available. Neither startup nor idle time contacts the archive. Choose a subreddit, inclusive local dates, and a timezone to acquire another interval. Start with seven days, or one day for very active communities. First acquisitions can take minutes; completed days are reusable. The current local day is excluded.
 
 ## Data flow
 
@@ -55,7 +55,7 @@ Completed days and analyses persist in IndexedDB. Stale data remains visible dur
 | Scoped archive relay                           | `api/archive.js`                                                    |
 | Local server and build allowlist               | `scripts/dev.mjs`, `scripts/build.mjs`                              |
 | Offline acquisition, SQLite, and normalization | `pipeline/`                                                         |
-| Starter summaries and report generation        | `scripts/starter.mjs`, `scripts/report.mjs`                         |
+| Starter summaries and report generation        | `scripts/starter.mjs`, `scripts/starter-page.mjs`, `scripts/report.mjs`                         |
 | Automated verification                         | `tests/`                                                            |
 
 Archive requests go directly to Arctic Shift first. If that connection fails, three fixed routes reach a stateless relay for post search, comment search, and subreddit discovery. Incoming cookies and authorization never go upstream. Acquisition and statistics stay in the browser worker.

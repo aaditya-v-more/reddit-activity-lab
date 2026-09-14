@@ -22,6 +22,9 @@ test("local preview enables the relay and dispatches the same route contract as 
   await serve({ method: "GET", url: "/" }, page);
   assert.equal(page.statusCode, 200);
   assert.match(page.body, /data-archive-relay="true"/);
+  const bootstrap = page.body.match(/<script id="starter-bootstrap" type="application\/json">([\s\S]*?)<\/script>/);
+  assert.ok(bootstrap, "preview embeds the same starter payload as production");
+  assert.equal(JSON.parse(bootstrap[1]).snapshot.subreddit, "ollama");
   const route = "/archive/posts/search?subreddit=ollama&limit=1";
   const res = response();
   await serve({ method: "GET", url: route }, res);

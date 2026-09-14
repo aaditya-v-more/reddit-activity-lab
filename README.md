@@ -27,7 +27,7 @@ JavaScript · Web Workers · IndexedDB · Python · SQLite · Vercel
 - **See when activity happens.** Compare comment, post, and distinct-participant heatmaps, trends, and competing submissions.
 - **Compare post outcomes.** Inspect median score, median comments, success rates, sample sizes, and uncertainty by submission window.
 - **Plan a posting experiment.** Follow recommendations back to their evidence and inspect the supporting posts.
-- **Pick up where you left off.** Dated starter summaries appear immediately; completed analyses stay on your device. Refresh, cancel, retry, or clear local data.
+- **Pick up where you left off.** The page includes a dated summary and restores your last saved analysis. Archive downloads start only after you change the analysis or request an update. Refresh, cancel, retry, or clear local data.
 
 IST by default, eight timezones, automatic light/dark mode, and a manual theme switch. On phones, bottom navigation, expandable filters, and post evidence cards keep the dashboard usable at small widths.
 
@@ -65,7 +65,7 @@ flowchart LR
   P --> S
 ```
 
-Acquisition deduplicates records, retains request hashes and timestamps, and rejects incomplete intervals. The same statistical engine powers the dashboard, tests, and reports. **48 tests run without downloaded records**, with an additional integration test for local study exports. Coverage includes pagination, IST/DST boundaries, cache recovery, confidence intervals, and temporal selection leakage.
+Acquisition deduplicates records, retains request hashes and timestamps, and rejects incomplete intervals. The same statistical engine powers the dashboard, tests, and reports. **55 tests run without downloaded records**, with an additional integration test for local study exports. Coverage includes pagination, IST/DST boundaries, cache recovery, confidence intervals, and temporal selection leakage.
 
 The frontend has **zero runtime npm dependencies**. Analysis runs in a worker; a scoped Vercel relay handles failed direct archive connections. Raw datasets and credentials stay out of Git and deployed assets.
 
@@ -73,7 +73,7 @@ The frontend has **zero runtime npm dependencies**. Analysis runs in a worker; a
 
 Activity counts describe posts, comments, and participating authors—not silent readers or people online. Score is Reddit's net voting metric. Performance comparisons use known **35–40-hour snapshots**, not first-day views or exact upvotes. Timing associations do not establish causation.
 
-Any covered subreddit can be requested, within **93 days, 200,000 records, and 350 requests per acquisition**. Archive coverage varies; refresh runs while the site is open, and saved results remain visible during outages.
+Any covered subreddit can be requested, within **93 days, 200,000 records, and 350 requests per acquisition**. Archive coverage varies; opening the site makes no archive requests, and saved results remain visible during requested updates or outages.
 
 | Read more                                         | What's inside                                            |
 | ------------------------------------------------- | -------------------------------------------------------- |

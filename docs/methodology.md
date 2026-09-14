@@ -1,6 +1,6 @@
 # Methodology
 
-The original six-week study and the current on-demand dashboard share the statistical engine below. The on-demand adapter acquires complete local-day partitions for arbitrary covered communities and caches only anonymous aggregates and redacted post evidence. The current local day is excluded. Each day retains its actual retrieval timestamp; cached dates may have different observation times. The last three completed dates expire after 15 minutes and older dates after seven days, with manual refresh available. See [hosting and freshness](hosting.md) for exact operational limits. These refresh checks do not measure audience presence.
+The original six-week study and the current on-demand dashboard share the statistical engine below. The on-demand adapter acquires complete local-day partitions for arbitrary covered communities and caches only anonymous aggregates and redacted post evidence. The current local day is excluded. Each day retains its actual retrieval timestamp; cached dates may have different observation times. During user-requested acquisitions, the last three completed dates become eligible for refresh after 15 minutes and older dates after seven days. Saved analyses are retained. Opening the dashboard and idle time trigger no acquisition or freshness polling. See [hosting and freshness](hosting.md) for exact operational limits. These refresh checks do not measure audience presence.
 
 ## Populations and intervals
 

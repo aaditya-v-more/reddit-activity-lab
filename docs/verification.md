@@ -65,3 +65,11 @@ All five analysis views were checked in Chromium at viewport overrides of 311, 3
 Phone checks covered the bottom navigation, expandable filters, subreddit suggestions, Escape dismissal, 16px input text, and full-width dates on the narrowest layout. Heatmap cells measure 44×44px, retain their horizontal position after selection and metric changes, and provide earlier/later buttons alongside swipe scrolling. Post evidence becomes labeled cards while comparison tables retain keyboard-accessible horizontal scrolling. Light and dark appearances, safe-area CSS, dynamic viewport height, and the browser theme-color metadata were reviewed. These are browser viewport checks, not physical-device Safari certification.
 
 The 49-test local suite and production build passed. Existing theme tests also verify that browser chrome colors follow the resolved system or manual preference. Layout changes add no runtime dependencies or server requests.
+
+## Preloaded startup — 14 September 2026
+
+The default r/ollama IST summary is embedded into the HTML at build time. Startup renders it before waiting for browser storage, then restores the last saved analysis if available. The previous unconditional startup acquisition and five-minute polling timer have been removed. Unchanged filters reuse the visible analysis; changed selections, explicit refresh/retry, and loading supporting evidence remain available.
+
+Seven controller regression tests exercise fresh visits, older saved analyses, idle time and view changes, storage failure, late cache restoration after user input, explicit refresh, and changed versus unchanged filters. They record worker actions and HTTP calls: startup performs only local restore/remember actions, with no load, pulse, discovery, or JSON requests when the embedded summary is present. The local preview test also checks the embedded payload. Total: 56 passing tests with local exports, or 55 passing and one integration skip without them.
+
+A browser check on a fresh localhost origin displayed the included 6–12 September r/ollama analysis with no acquisition panel. Switching to Post performance retained the summary; reloading restored it from the device without starting an update. Source freshness text now describes the displayed snapshot instead of retaining another community's starter label.

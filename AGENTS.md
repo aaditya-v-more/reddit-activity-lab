@@ -7,3 +7,5 @@
 - Keep participant counts distinct from online users, scores distinct from exact upvotes, and historical archive timestamps distinct from the current time.
 - Never silently turn a capped or failed acquisition into a complete analysis. Preserve source request provenance and expose freshness and missingness.
 - No individual-user tracking features. Author identifiers may be used transiently to compute distinct counts; cache only anonymous aggregates and redacted public post evidence in the browser.
+
+- First visits render the embedded aggregate summary; returning visits restore saved analysis. Never acquire archive records or poll source freshness on page load or an idle timer. Acquisition requires a changed analysis selection or an explicit Refresh/Retry/Load supporting posts action.

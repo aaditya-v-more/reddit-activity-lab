@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { inlineStarter } from "./starter-page.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -26,8 +27,7 @@ fs.cpSync(path.join(root, "dist/starter"), path.join(out, "starter"), {
 const entry = path.join(out, "index.html");
 fs.writeFileSync(
   entry,
-  fs
-    .readFileSync(entry, "utf8")
+  inlineStarter(fs.readFileSync(entry, "utf8"))
     .replace('data-local-study="true"', 'data-local-study="false"')
     .replace(
       'data-archive-relay="false"',

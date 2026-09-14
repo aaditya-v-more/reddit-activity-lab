@@ -1,0 +1,153 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import vm from "node:vm";
+import { analyze, DAYS, median, localParts } from "../dist/analysis.js";
+import { BOTS, addDays, subredditName } from "../dist/archive.js";
+import { inlineStarter } from "../scripts/starter-page.mjs";
+
+const html = inlineStarter(fs.readFileSync(new URL("../dist/index.html", import.meta.url), "utf8"));
+const bootstrap = html.match(/<script id="starter-bootstrap" type="application\/json">([\s\S]*?)<\/script>/)[1];
+const app = fs.readFileSync(new URL("../dist/app.js", import.meta.url), "utf8")
+  .replace(/^import .*;\n/gm, "")
+  .replaceAll("import.meta.url", '"https://example.test/app.js"');
+const summary = JSON.parse(bootstrap).snapshot;
+const snapshot = (d = summary) => ({
+  dataset: { mode: "on-demand", subreddit: d.subreddit, coverage: d.coverage, audit: d.audit, ledger: d.ledger, posts: [], zones: {} },
+  analysis: { ...d.result, posts: [], eligible: [] },
+});
+const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(setImmediate); };
+
+// Exercise the actual page controller with browser storage/worker boundaries mocked.
+// No source records, external requests, or browser profile access are needed.
+function page({ saved = null, delayRestore = false, storageError = false } = {}) {
+  const elements = new Map(), documentEvents = {}, workerActions = [], http = [], timers = [];
+  function element(selector) {
+    if (!elements.has(selector)) {
+      const classes = new Set();
+      elements.set(selector, {
+        value: "", textContent: "", innerHTML: "", dataset: {}, hidden: false,
+        options: [], attributes: {}, listeners: {}, scrollLeft: 0, clientWidth: 300, scrollWidth: 1190,
+        classList: { toggle(name, yes) { yes ? classes.add(name) : classes.delete(name); }, contains(name) { return classes.has(name); }, remove(name) { classes.delete(name); }, add(name) { classes.add(name); } },
+        setAttribute(name, value) { this.attributes[name] = value; },
+        addEventListener(name, fn) { (this.listeners[name] ||= []).push(fn); },
+        focus() {}, contains() { return false; },
+      });
+    }
+    return elements.get(selector);
+  }
+  element("#starter-bootstrap").textContent = bootstrap;
+  element("#community").value = "ollama";
+  element("#timezone").value = "Asia/Kolkata";
+  element("#timezone").options = [{ value: "Asia/Kolkata", textContent: "India · IST (UTC+5:30)" }];
+  const pendingRestores = [];
+  class Worker {
+    listeners = {};
+    addEventListener(name, fn) { this.listeners[name] = fn; }
+    terminate() {}
+    postMessage(message) {
+      workerActions.push(message);
+      if (message.action === "cancel") return;
+      const reply = () => {
+        const data = message.action === "restore" && storageError
+          ? { id: message.id, error: "Storage unavailable" }
+          : { id: message.id, result: message.action === "restore" ? saved
+            : message.action === "load" ? { dataset: snapshot().dataset, analysis: snapshot().analysis }
+            : message.action === "pulse" ? { checkedAt: new Date().toISOString() } : true };
+        queueMicrotask(() => this.listeners.message({ data }));
+      };
+      if (message.action === "restore" && delayRestore) pendingRestores.push(reply);
+      else reply();
+    }
+  }
+  const document = {
+    body: { dataset: { archiveRelay: "true", localStudy: "false" } },
+    querySelector: element,
+    querySelectorAll: () => [],
+    addEventListener(name, fn) { (documentEvents[name] ||= []).push(fn); },
+  };
+  vm.runInNewContext(app, {
+    document, Worker, URL, analyze, DAYS, median, localParts, BOTS, addDays, subredditName,
+    createSubredditPicker: () => ({ clearRecent() {} }),
+    navigator: { storage: { persist: () => Promise.resolve(true) } },
+    window: { matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener() {}, scrollTo() {} },
+    fetch: async (url) => { http.push(url); throw new Error("Unexpected HTTP request during startup"); },
+    requestAnimationFrame: (fn) => fn(),
+    setInterval: (fn) => { timers.push(fn); return timers.length; }, clearInterval() {}, setTimeout,
+  });
+  return { element, documentEvents, workerActions, http, timers,
+    restore() { pendingRestores.splice(0).forEach((reply) => reply()); },
+    click(button) { (documentEvents.click || []).forEach((fn) => fn({ target: { closest: () => button } })); },
+  };
+}
+
+test("a fresh visit renders the embedded real summary before storage resolves, without archive or JSON fetches", async () => {
+  const p = page({ delayRestore: true });
+  assert.match(p.element("#content").innerHTML, /Activity by day and hour/);
+  assert.equal(p.element("#community").value, summary.subreddit);
+  assert.equal(p.element("#start").value, summary.result.start);
+  p.restore(); await flush();
+  assert.deepEqual(p.http, []);
+  assert.deepEqual(p.workerActions.map((x) => x.action), ["restore", "remember"]);
+  assert.match(p.element("#freshness").textContent, /Included summary/);
+});
+
+test("a returning visit restores an older saved community without automatic acquisition or stale starter labels", async () => {
+  const d = JSON.parse(fs.readFileSync(new URL("../dist/starter/ClaudeAI-Asia_Kolkata.json", import.meta.url), "utf8"));
+  const p = page({ saved: snapshot(d) }); await flush();
+  assert.equal(p.element("#community").value, "ClaudeAI");
+  assert.match(p.element("#freshness").textContent, /Saved analysis · r\/ClaudeAI/);
+  assert.doesNotMatch(p.element("#freshness").textContent, /r\/ollama/);
+  assert.deepEqual(p.workerActions.map((x) => x.action), ["restore"]);
+  assert.deepEqual(p.http, []);
+});
+
+test("idle time, view navigation, and heatmap metrics never request archive data", async () => {
+  const p = page(); await flush();
+  p.click({ dataset: { view: "activity" } });
+  p.click({ dataset: { metric: "authors" } });
+  for (let i = 0; i < 6; i++) p.timers.forEach((tick) => tick());
+  await flush();
+  assert.equal(p.timers.length, 0, "no recurring acquisition timer is installed");
+  assert.equal(p.workerActions.some((x) => ["load", "pulse", "discover"].includes(x.action)), false);
+  assert.deepEqual(p.http, []);
+});
+
+test("storage failures preserve the included analysis and do not fall through to acquisition", async () => {
+  const p = page({ storageError: true }); await flush();
+  assert.match(p.element("#content").innerHTML, /Activity by day and hour/);
+  assert.equal(p.workerActions.some((x) => ["load", "pulse"].includes(x.action)), false);
+  assert.deepEqual(p.http, []);
+});
+
+test("late storage restoration cannot overwrite filters the visitor has started changing", async () => {
+  const p = page({ saved: snapshot(), delayRestore: true });
+  p.element("#community").value = "testcommunity";
+  p.element("#filters").listeners.input[0]();
+  p.restore(); await flush();
+  assert.equal(p.element("#community").value, "testcommunity");
+  assert.equal(p.workerActions.some((x) => x.action === "load"), false);
+});
+
+test("an explicit Refresh data action still acquires records and checks source freshness", async () => {
+  const p = page(); await flush();
+  p.click({ id: "refresh-archive", dataset: {} }); await flush();
+  const loads = p.workerActions.filter((x) => x.action === "load");
+  assert.equal(loads.length, 1);
+  assert.equal(loads[0].options.force, true);
+  assert.equal(p.workerActions.filter((x) => x.action === "pulse").length, 1);
+});
+
+
+test("unchanged filters reuse the visible analysis; changed dates start a requested acquisition", async () => {
+  const p = page(); await flush();
+  p.element("#filters").listeners.submit[0]({ preventDefault() {} });
+  await flush();
+  assert.equal(p.workerActions.some((x) => x.action === "load"), false);
+  p.element("#start").value = "2026-09-05";
+  p.element("#filters").listeners.submit[0]({ preventDefault() {} });
+  await flush();
+  const loads = p.workerActions.filter((x) => x.action === "load");
+  assert.equal(loads.length, 1);
+  assert.equal(loads[0].options.start, "2026-09-05");
+});

@@ -24,6 +24,7 @@
     <script type="module" src="/app.js?v=2.1.0"></script>
   </head>
   <body data-local-study="true" data-archive-relay="false">
+    <!-- starter-bootstrap -->
     <a class="skip" href="#main">Skip to analysis</a>
     <div class="app-shell">
       <aside class="sidebar">
@@ -234,10 +235,6 @@
               <button class="button quiet compact" id="clear-local-data">
                 Clear local data
               </button>
-              <label class="auto-refresh"
-                ><input id="auto-refresh" type="checkbox" checked />
-                Auto-refresh while open</label
-              >
             </div>
           </div>
             </div>
@@ -251,8 +248,7 @@
             aria-label="Archive freshness"
             aria-live="polite"
           >
-            <span class="loader inline-loader" aria-hidden="true"></span>
-            Checking source freshness…
+            Showing the included historical summary. Updates start when you change the analysis or choose Refresh data.
           </section>
           <div
             id="status"
@@ -260,14 +256,14 @@
             role="status"
             aria-live="polite"
           >
-            Opening the selected archive interval…
+            Opening the included analysis…
           </div>
           <div id="load-panel" hidden></div>
           <div id="content" aria-busy="true">
             <div class="loading-state">
               <span class="loader" aria-hidden="true"></span>
-              <h2>Opening the archive</h2>
-              <p>Loading historical records and their collection details.</p>
+              <h2>Opening the dashboard</h2>
+              <p>Preparing the included activity summary.</p>
             </div>
           </div>
           <noscript
