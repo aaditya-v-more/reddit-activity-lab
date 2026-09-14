@@ -50,3 +50,9 @@ After the fix, the browser completed all seven local dates for r/ollama (6–12 
 The custom combobox supplements starter and recent communities with live directory matches. Ranking tests cover exact/prefix/substring order, case-insensitive deduplication, empty-query recent order, malformed names, no matches, and bounded results. Total: **49 tests passing**, or 48 passing and one explicit integration skip without local study exports.
 
 Browser checks confirmed live `clau` and `LocalLLa` directory matches, direct selection of r/LocalLLaMA followed by a completed analysis, arrow-key/Enter selection, Escape dismissal, and recent selections in the menu. Light and dark appearances were reviewed. At a 390 px viewport the document remained 390 px wide and the dropdown stayed inside the viewport.
+
+## View navigation — 14 September 2026
+
+Switching analysis views now resets the document scroll position immediately after rendering. Sidebar buttons and links to methodology or supporting evidence share this behavior. Ordinary updates within a view retain the current reading position.
+
+Browser checks started each of the five sidebar transitions more than 1,500 pixels down the page; every destination returned to `scrollY = 0`. Keyboard activation also returned to the top. Switching the heatmap metric retained its position in the chart area. All 49 existing tests and the production build passed.

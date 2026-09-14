@@ -168,6 +168,11 @@ function render() {
             ? postsView()
             : methodology();
 }
+function showView(view) {
+  state.view = view;
+  render();
+  window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+}
 const workerUrl = new URL("./archive-worker.js", import.meta.url);
 if (document.body.dataset.archiveRelay === "true")
   workerUrl.searchParams.set("relay", "1");
@@ -451,8 +456,7 @@ document.addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (!b) return;
   if (b.dataset.view) {
-    state.view = b.dataset.view;
-    render();
+    showView(b.dataset.view);
   }
   if (b.dataset.metric) {
     state.metric = b.dataset.metric;
@@ -463,9 +467,8 @@ document.addEventListener("click", (e) => {
     render();
   }
   if (b.id === "cell-posts") {
-    state.view = "posts";
     state.page = 0;
-    render();
+    showView("posts");
   }
   if (b.id === "retry") load();
   if (b.id === "reset-dates") {
@@ -474,8 +477,7 @@ document.addEventListener("click", (e) => {
     load();
   }
   if (b.id === "method-button") {
-    state.view = "methodology";
-    render();
+    showView("methodology");
   }
 });
 $("#filters").addEventListener("submit", (e) => {
@@ -895,9 +897,8 @@ document.addEventListener("click", (e) => {
     state.window = Number(b.dataset.window);
     state.cell = null;
     state.page = 0;
-    state.view = "posts";
     state.eligibility = "eligible";
-    render();
+    showView("posts");
   }
   if (b.dataset.page) {
     state.page += Number(b.dataset.page);
