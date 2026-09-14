@@ -10,21 +10,21 @@
   },
   "rewrites": [
     {
-      "source": "/archive/posts/search",
+      "source": "/reddit/archive/posts/search/",
       "destination": "/api/archive?kind=posts"
     },
     {
-      "source": "/archive/comments/search",
+      "source": "/reddit/archive/comments/search/",
       "destination": "/api/archive?kind=comments"
     },
     {
-      "source": "/archive/subreddits/search",
+      "source": "/reddit/archive/subreddits/search/",
       "destination": "/api/archive?kind=subreddits"
     }
   ],
   "headers": [
     {
-      "source": "/archive/(.*)",
+      "source": "/reddit/archive/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -60,37 +60,10 @@
   ],
   "redirects": [
     {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "reddit-activity-lab.vercel.app"
-        }
-      ],
-      "destination": "https://reddit.aadityamore.com/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "reddit-activity-lab-aaditya8.vercel.app"
-        }
-      ],
-      "destination": "https://reddit.aadityamore.com/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "reddit-activity-lab-git-main-aaditya8.vercel.app"
-        }
-      ],
-      "destination": "https://reddit.aadityamore.com/:path*",
+      "source": "/",
+      "destination": "https://lab.aadityamore.com/reddit/",
       "permanent": true
     }
-  ]
+  ],
+  "trailingSlash": true
 }

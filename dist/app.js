@@ -609,7 +609,7 @@ async function showStarter(
 ) {
   const epoch = state.selectionEpoch;
   if (!state.starterManifest) {
-    const res = await fetch("/starter/manifest.json");
+    const res = await fetch(new URL("./starter/manifest.json", import.meta.url));
     if (!res.ok) return false;
     state.starterManifest = await res.json();
   }
@@ -619,7 +619,7 @@ async function showStarter(
   if (!entry) return false;
   let snapshot = state.starterCache.get(entry.file);
   if (!snapshot) {
-    const res = await fetch(`/starter/${encodeURIComponent(entry.file)}`);
+    const res = await fetch(new URL(`./starter/${encodeURIComponent(entry.file)}`, import.meta.url));
     if (!res.ok) return false;
     const d = await res.json();
     snapshot = starterSnapshot(d);

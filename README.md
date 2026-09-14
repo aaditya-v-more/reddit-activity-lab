@@ -6,13 +6,13 @@
 
 Find posting windows worth testing using real subreddit activity and post performance.
 
-[**Open the dashboard ↗**](https://reddit.aadityamore.com/) · [Read the findings](docs/initial-report.md) · [Methodology](docs/methodology.md)
+[**Open the dashboard ↗**](https://lab.aadityamore.com/reddit/) · [Read the findings](docs/initial-report.md) · [Methodology](docs/methodology.md)
 
 JavaScript · Web Workers · IndexedDB · Python · SQLite · Vercel
 
 </div>
 
-<a href="https://reddit.aadityamore.com/">
+<a href="https://lab.aadityamore.com/reddit/">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/overview-dark.jpg">
     <img src="docs/images/overview-light.jpg" alt="Reddit Activity Lab showing r/ClaudeAI activity, participant counts, and an hourly comment heatmap in IST.">

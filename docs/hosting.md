@@ -35,11 +35,11 @@ The source's July 2026 corpus download alone was listed at 80.27 GB in the origi
 
 ## Deployment procedure
 
-`npm run build` copies application assets and anonymous starter summaries to `.output/`. It never copies `dist/data/`, raw responses, SQLite, `.local/`, `.vercel/`, or credentials. `.vercelignore` also excludes local records from source uploads. The hosting configuration sets restrictive source permissions and does not add analytics.
+`npm run build` copies application assets and anonymous starter summaries to `.output/reddit/`. It never copies `dist/data/`, raw responses, SQLite, `.local/`, `.vercel/`, or credentials. `.vercelignore` also excludes local records from source uploads. The hosting configuration sets restrictive source permissions and does not add analytics.
 
-Production uses the `main` branch of `aaditya-v-more/reddit-activity-lab` and the domain `reddit.aadityamore.com`. The Git integration is connected with `main` as the production branch. The build command is `npm test && npm run build`, and the output directory is `.output`.
+Production uses the `main` branch of `aaditya-v-more/reddit-activity-lab` at `https://lab.aadityamore.com/reddit/` through the Lab hub. The Git integration is connected with `main` as the production branch. The build command is `npm test && npm run build`, and the output directory is `.output`.
 
-For a manual deployment, run `vercel deploy --prod --scope <your-scope>`. Use `--target preview` for a preview. Inspect deployment status with `vercel inspect <deployment-url>`.
+Commit and push reviewed changes to `main`. Verify the exact pushed Git commit reaches Ready in production and check the public Lab URL, assets and relay routes. Do not run a redundant manual deployment after a successful Git build.
 
 The relay uses three fixed routes and `api/archive.js`, restricted to one subreddit/day per request, a latest-record query, or prefix discovery. It rejects writes and arbitrary destinations, caps responses at 4 MB, and times out upstream requests after 20 seconds. Incoming site credentials never reach Arctic Shift. Browser requests retain source URLs and a `direct` or `relay` transport field in the provenance ledger. Request pacing, retry limits, and acquisition caps apply to direct and relayed requests. The browser includes same-origin credentials on relay requests when Vercel login protection is enabled; the relay excludes them from its upstream request.
 
@@ -47,12 +47,24 @@ For Cloudflare Pages, import the public GitHub repository, choose no framework, 
 
 ## Custom domain
 
-The public dashboard uses `https://reddit.aadityamore.com/`. Cloudflare routes
-`reddit` through a DNS-only CNAME to `573b620697d3f7b1.vercel-dns-017.com`.
-The existing Vercel project remains connected to this repository’s `main` branch.
-The three stable Vercel production/branch aliases permanently redirect to the
-custom domain, preserving paths and query strings. Keep preview protection enabled.
+The public dashboard uses `https://lab.aadityamore.com/reddit/`. The Lab collection
+at `https://lab.aadityamore.com/` is maintained in `aaditya-v-more/resume`, whose
+Vercel hub proxies `/reddit/` and its assets to this project's production alias.
+This repository remains connected to Vercel's `main` production branch, so a
+successful push updates the dashboard without rebuilding the collection hub.
+
+The build packages only application assets and anonymous starter summaries under
+`.output/reddit/`. Relative asset, starter and worker URLs support the mounted
+path and the existing local development server. The archive relay is exposed at
+`/reddit/archive/`; its request and privacy limits are unchanged.
+
+Standalone Vercel homepages permanently redirect to the public dashboard. The
+namespaced `/reddit/` origin must remain available for the hub's external rewrite;
+redirecting it back to Lab would create a loop. No public portfolio or README link
+uses a Vercel address. Keep preview protection enabled.
 
 The build publishes a canonical URL, sharing metadata, the existing public
-dashboard preview, `robots.txt` and a one-page sitemap for the custom domain.
-The static output allowlist still excludes acquired records and private local data.
+dashboard preview, robots.txt and a one-page sitemap for the mounted URL. Lab's
+sitemap index discovers `/reddit/sitemap.xml` on every source deployment. Cloudflare
+DNS and the Lab custom domain belong to the collection hub, not this child project.
+The obsolete `reddit.aadityamore.com` domain is removed.

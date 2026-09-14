@@ -3,7 +3,9 @@ import { inlineStarter } from "./starter-page.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const out = path.join(root, ".output");
+const outputRoot = path.join(root, ".output");
+fs.rmSync(outputRoot, { recursive: true, force: true });
+const out = path.join(outputRoot, "reddit");
 fs.mkdirSync(out, { recursive: true });
 // An explicit allowlist keeps raw records and local configuration out of deployments.
 const files = [
@@ -17,8 +19,6 @@ const files = [
   "theme.js",
   "subreddit-picker.js",
 ];
-for (const entry of fs.readdirSync(out))
-  fs.rmSync(path.join(out, entry), { recursive: true, force: true });
 for (const file of files)
   fs.copyFileSync(path.join(root, "dist", file), path.join(out, file));
 // Only precomputed aggregate snapshots are public; individual records stay local.
@@ -37,11 +37,11 @@ fs.writeFileSync(
 );
 fs.writeFileSync(
   path.join(out, "robots.txt"),
-  "User-agent: *\nAllow: /\nDisallow: /archive/\nDisallow: /api/\nSitemap: https://reddit.aadityamore.com/sitemap.xml\n",
+  "User-agent: *\nAllow: /\nDisallow: /reddit/archive/\nDisallow: /api/\nSitemap: https://lab.aadityamore.com/reddit/sitemap.xml\n",
 );
 fs.writeFileSync(
   path.join(out, "sitemap.xml"),
-  '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://reddit.aadityamore.com/</loc></url></urlset>\n',
+  '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://lab.aadityamore.com/reddit/</loc></url></urlset>\n',
 );
 const starters = fs.readdirSync(path.join(out, "starter"));
 const codeBytes = files.reduce(

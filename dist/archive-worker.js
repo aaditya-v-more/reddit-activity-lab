@@ -3,7 +3,7 @@ import { analyze } from "./analysis.js";
 
 const client = new ArcticClient({
   relay: new URL(self.location.href).searchParams.has("relay")
-    ? new URL("/archive", self.location.href).href
+    ? new URL("./archive", self.location.href).href
     : null,
 });
 const controllers = new Map();
