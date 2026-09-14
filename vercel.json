@@ -3,7 +3,11 @@
   "framework": null,
   "buildCommand": "npm test && npm run build",
   "outputDirectory": ".output",
-  "functions": { "api/archive.js": { "maxDuration": 25 } },
+  "functions": {
+    "api/archive.js": {
+      "maxDuration": 25
+    }
+  },
   "rewrites": [
     {
       "source": "/archive/posts/search",
@@ -22,21 +26,71 @@
     {
       "source": "/archive/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" },
-        { "key": "CDN-Cache-Control", "value": "no-store" },
-        { "key": "x-vercel-enable-rewrite-caching", "value": "0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "x-vercel-enable-rewrite-caching",
+          "value": "0"
+        }
       ]
     },
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self'; worker-src 'self'; connect-src 'self' https://arctic-shift.photon-reddit.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'"
         }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "reddit-activity-lab.vercel.app"
+        }
+      ],
+      "destination": "https://reddit.aadityamore.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "reddit-activity-lab-aaditya8.vercel.app"
+        }
+      ],
+      "destination": "https://reddit.aadityamore.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "reddit-activity-lab-git-main-aaditya8.vercel.app"
+        }
+      ],
+      "destination": "https://reddit.aadityamore.com/:path*",
+      "permanent": true
     }
   ]
 }

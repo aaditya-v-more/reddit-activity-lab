@@ -37,10 +37,22 @@ The source's July 2026 corpus download alone was listed at 80.27 GB in the origi
 
 `npm run build` copies application assets and anonymous starter summaries to `.output/`. It never copies `dist/data/`, raw responses, SQLite, `.local/`, `.vercel/`, or credentials. `.vercelignore` also excludes local records from source uploads. The hosting configuration sets restrictive source permissions and does not add analytics.
 
-Production uses the `main` branch of `aaditya-v-more/reddit-activity-lab` and the domain `reddit-activity-lab.vercel.app`. The Git integration is connected with `main` as the production branch. The build command is `npm test && npm run build`, and the output directory is `.output`.
+Production uses the `main` branch of `aaditya-v-more/reddit-activity-lab` and the domain `reddit.aadityamore.com`. The Git integration is connected with `main` as the production branch. The build command is `npm test && npm run build`, and the output directory is `.output`.
 
 For a manual deployment, run `vercel deploy --prod --scope <your-scope>`. Use `--target preview` for a preview. Inspect deployment status with `vercel inspect <deployment-url>`.
 
 The relay uses three fixed routes and `api/archive.js`, restricted to one subreddit/day per request, a latest-record query, or prefix discovery. It rejects writes and arbitrary destinations, caps responses at 4 MB, and times out upstream requests after 20 seconds. Incoming site credentials never reach Arctic Shift. Browser requests retain source URLs and a `direct` or `relay` transport field in the provenance ledger. Request pacing, retry limits, and acquisition caps apply to direct and relayed requests. The browser includes same-origin credentials on relay requests when Vercel login protection is enabled; the relay excludes them from its upstream request.
 
 For Cloudflare Pages, import the public GitHub repository, choose no framework, set build command `npm run build`, and output directory `.output`. Alternatively upload that output directory. Set `ARCHIVE_RELAY=0` for a host without equivalent relay routes. The analysis code stays unchanged; networks that block direct archive access would need a relay configured on that host.
+
+## Custom domain
+
+The public dashboard uses `https://reddit.aadityamore.com/`. Cloudflare routes
+`reddit` through a DNS-only CNAME to `573b620697d3f7b1.vercel-dns-017.com`.
+The existing Vercel project remains connected to this repository’s `main` branch.
+The three stable Vercel production/branch aliases permanently redirect to the
+custom domain, preserving paths and query strings. Keep preview protection enabled.
+
+The build publishes a canonical URL, sharing metadata, the existing public
+dashboard preview, `robots.txt` and a one-page sitemap for the custom domain.
+The static output allowlist still excludes acquired records and private local data.

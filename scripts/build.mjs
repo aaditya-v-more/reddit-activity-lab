@@ -8,6 +8,7 @@ fs.mkdirSync(out, { recursive: true });
 // An explicit allowlist keeps raw records and local configuration out of deployments.
 const files = [
   "index.html",
+  "preview.jpg",
   "style.css",
   "app.js",
   "analysis.js",
@@ -34,6 +35,14 @@ fs.writeFileSync(
       `data-archive-relay="${process.env.ARCHIVE_RELAY !== "0"}"`,
     ),
 );
+fs.writeFileSync(
+  path.join(out, "robots.txt"),
+  "User-agent: *\nAllow: /\nDisallow: /archive/\nDisallow: /api/\nSitemap: https://reddit.aadityamore.com/sitemap.xml\n",
+);
+fs.writeFileSync(
+  path.join(out, "sitemap.xml"),
+  '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://reddit.aadityamore.com/</loc></url></urlset>\n',
+);
 const starters = fs.readdirSync(path.join(out, "starter"));
 const codeBytes = files.reduce(
   (sum, file) => sum + fs.statSync(path.join(out, file)).size,
@@ -44,5 +53,5 @@ const starterBytes = starters.reduce(
   0,
 );
 console.log(
-  `Static website: ${codeBytes} bytes of application code and ${starterBytes} bytes across ${starters.length} aggregate snapshot files. No individual records bundled. The optional relay Function is built separately by Vercel.`,
+  `Static website: ${codeBytes} bytes of application assets and ${starterBytes} bytes across ${starters.length} aggregate snapshot files. No individual records bundled. The optional relay Function is built separately by Vercel.`,
 );
