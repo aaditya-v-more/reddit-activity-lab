@@ -1,7 +1,7 @@
 import { analyze, DAYS, median, localParts } from "./analysis.js";
 import { BOTS, addDays, subredditName } from "./archive.js";
 import { createSubredditPicker } from "./subreddit-picker.js";
-import { preferredZone, saveZone } from "./timezone.js";
+import { preferredZone, saveZone, availableZones, zoneName } from "./timezone.js";
 const $ = (s) => document.querySelector(s);
 const n = (x) =>
   x == null
@@ -33,7 +33,7 @@ try { zoneStorage = window.localStorage; } catch {}
 let timezonePreference = preferredZone(zoneStorage);
 function selectZone(zone) {
   if (![...$("#timezone").options].some((option) => option.value === zone))
-    $("#timezone").add(new Option(zone.replaceAll("_", " "), zone));
+    $("#timezone").add(new Option(zoneName(zone), zone));
   $("#timezone").value = zone;
 }
 function timezoneHint() {
@@ -42,6 +42,10 @@ function timezoneHint() {
   $("#timezone-help").hidden = !mismatch;
   $("#timezone-help").textContent = mismatch
     ? `Showing saved data in ${state.result.zone}. Apply filters to analyze in ${selected}.` : "";
+}
+const listedZones = new Set([...$("#timezone").options].map((option) => option.value));
+for (const zone of availableZones().sort((a, b) => zoneName(a).localeCompare(zoneName(b)))) {
+  if (!listedZones.has(zone)) $("#timezone").add(new Option(zoneName(zone), zone));
 }
 selectZone(timezonePreference.zone);
 const colors = Array.from({ length: 8 }, (_, i) => `var(--heat-${i})`);

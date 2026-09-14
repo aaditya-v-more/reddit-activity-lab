@@ -4,7 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import { analyze, DAYS, median, localParts } from "../dist/analysis.js";
 import { BOTS, addDays, subredditName } from "../dist/archive.js";
-import { preferredZone, saveZone } from "../dist/timezone.js";
+import { preferredZone, saveZone, availableZones, zoneName } from "../dist/timezone.js";
 import { inlineStarter } from "../scripts/starter-page.mjs";
 
 const html = inlineStarter(fs.readFileSync(new URL("../dist/index.html", import.meta.url), "utf8"));
@@ -69,7 +69,7 @@ function page({ saved = null, delayRestore = false, storageError = false, detect
     addEventListener(name, fn) { (documentEvents[name] ||= []).push(fn); },
   };
   vm.runInNewContext(app, {
-    deviceZone: () => detected, preferredZone: (storage) => preferredZone(storage, detected), saveZone,
+    availableZones, zoneName, deviceZone: () => detected, preferredZone: (storage) => preferredZone(storage, detected), saveZone,
     Option: function(textContent, value) { return { textContent, value }; },
     document, Worker, URL, analyze, DAYS, median, localParts, BOTS, addDays, subredditName,
     createSubredditPicker: () => ({ clearRecent() {} }),

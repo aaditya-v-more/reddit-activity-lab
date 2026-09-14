@@ -29,7 +29,7 @@ JavaScript · Web Workers · IndexedDB · Python · SQLite · Vercel
 - **Plan a posting experiment.** Follow recommendations back to their evidence and inspect the supporting posts.
 - **Pick up where you left off.** The page includes a dated summary and restores your last saved analysis. Archive downloads start only after you change the analysis or request an update. Refresh, cancel, retry, or clear local data.
 
-Device timezone detection with a remembered manual override, automatic light/dark mode, and a manual theme switch. Analysis supports browser-recognized IANA timezones; eight timezone variants of the starter summary are included. On phones, bottom navigation, expandable filters, and post evidence cards keep the dashboard usable at small widths.
+Device timezone detection with a remembered manual override, automatic light/dark mode, and a manual theme switch. The dropdown includes 400+ IANA timezones with regional daylight-saving rules; eight timezone variants of the starter summary are included. On phones, bottom navigation, expandable filters, and post evidence cards keep the dashboard usable at small widths.
 
 <details>
 <summary><strong>See post-performance analysis in dark mode</strong></summary>
@@ -65,7 +65,7 @@ flowchart LR
   P --> S
 ```
 
-Acquisition deduplicates records, retains request hashes and timestamps, and rejects incomplete intervals. The same statistical engine powers the dashboard, tests, and reports. **61 tests run without downloaded records**, with an additional integration test for local study exports. Coverage includes pagination, IST/DST boundaries, cache recovery, confidence intervals, and temporal selection leakage.
+Acquisition deduplicates records, retains request hashes and timestamps, and rejects incomplete intervals. The same statistical engine powers the dashboard, tests, and reports. **62 tests run without downloaded records**, with an additional integration test for local study exports. Coverage includes pagination, IST/DST boundaries, cache recovery, confidence intervals, and temporal selection leakage.
 
 The frontend has **zero runtime npm dependencies**. Analysis runs in a worker; a scoped Vercel relay handles failed direct archive connections. Raw datasets and credentials stay out of Git and deployed assets.
 
