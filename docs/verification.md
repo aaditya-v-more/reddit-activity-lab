@@ -81,3 +81,13 @@ The browser's IANA timezone initializes the selector, with a locally saved manua
 Regression coverage verifies detection, stored choices, blocked storage, quarter-hour date boundaries, daylight saving in a previously unsupported zone, and zero startup archive requests for both bundled and unbundled timezones.
 
 The timezone dropdown includes the browser’s full IANA list, with a bundled identifier fallback for older browsers. Global coverage and readable regional labels are verified without external requests.
+
+### Reusable timezone cache
+
+UTC blocks now retain anonymous summaries for each distinct local-day/hour layout, plus one shared copy of redacted post evidence and request provenance. Source rows are held only in a rolling acquisition buffer; persisted blocks contain neither author names nor author hashes. Repeated UTC source intervals are reused within an acquisition. A missing boundary block can require adjacent overlapping source coverage to reconstruct exact participant unions, but interior cached days are not downloaded again. An explicit refresh advances the analysis revision so older derived analyses cannot mask updated summaries.
+
+Regression checks compare cached results with direct aggregation of synthetic source records, including volume, distinct participants, post evidence, audit counts, Nepal's quarter-hour offset, both sides of the international date line, US spring/fall daylight saving, and Lord Howe's half-hour transition. Tests also cover zero-request timezone switches, boundary-only acquisition, legacy cache migration, retained data after source failure, explicit refresh, instant embedded-starter switching, and suppression of freshness requests after local-only calculations.
+
+### Default community
+
+r/funny is the default for new visits. Its 10–12 September 2026 IST summary contains 11,364 archived records: 510 posts and 10,854 comments before bot exclusions (10,635 comments after exclusions). Of the posts, 52 meet the 35–40-hour snapshot eligibility rule. The UTC boundary buffer across eight timezone variants contains 13,325 records, acquired on 14 September 2026. The longer request failed and was not published; the complete three-day request exhausted all pages. Existing saved analyses still restore on returning visits.

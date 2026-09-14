@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 const root = new URL("../dist/starter/", import.meta.url);
 const manifest = JSON.parse(fs.readFileSync(new URL("manifest.json", root)));
-test("all three starter communities have eight reconciled, anonymous timezone snapshots", () => {
-  assert.equal(manifest.entries.length, 24);
+test("all four starter communities have eight reconciled, anonymous timezone snapshots", () => {
+  assert.equal(manifest.entries.length, 32);
   for (const entry of manifest.entries) {
     const data = JSON.parse(fs.readFileSync(new URL(entry.file, root)));
     assert.equal(data.result.zone, entry.zone);
-    assert.equal(data.result.days, 7);
+    assert.equal(data.result.days, (Date.parse(entry.end) - Date.parse(entry.start)) / 86400000 + 1);
     assert.equal(
       data.result.daily.reduce((s, d) => s + d.comments, 0),
       data.result.totals.comments,

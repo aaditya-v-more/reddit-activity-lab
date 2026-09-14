@@ -15,7 +15,7 @@ npm run dev
 
 Open [localhost:4317](http://127.0.0.1:4317). The development server runs the same scoped relay as production. Set `REDDIT_LAB_PORT` to use another port.
 
-The initial HTML embeds a dated starter analysis and the dashboard restores the device's last saved result when available. Neither startup nor idle time contacts the archive. Choose a subreddit, inclusive local dates, and a timezone to acquire another interval. Start with seven days, or one day for very active communities. First acquisitions can take minutes; completed days are reusable. The current local day is excluded.
+The initial HTML embeds a dated starter analysis and the dashboard restores the device's last saved result when available. Neither startup nor idle time contacts the archive. Choose a subreddit, inclusive local dates, and a timezone. The worker reuses cached summaries and acquires missing coverage; Refresh data explicitly updates saved records. Start with seven days, or one day for very active communities. First acquisitions can take minutes; completed days are reusable. The current local day is excluded.
 
 ## Data flow
 
@@ -87,10 +87,11 @@ The source adapter is replaceable. Map score measurement timestamps only when th
 
 ## Regenerate starter summaries
 
-Starter summaries cover **6–12 September 2026** for r/ollama, r/ClaudeAI, and r/ClaudeCode in all eight supported timezones. The three IST summaries represent **36,610 acquired records** before bot exclusions. Only anonymous aggregates and request provenance are published: no authors, post IDs, titles, or bodies.
+The default r/funny summary covers **10–12 September 2026**, including 11,364 records before bot exclusions in IST. Additional starter summaries cover **6–12 September 2026** for r/ollama, r/ClaudeAI, and r/ClaudeCode in eight bundled timezones. The three IST summaries represent **36,610 acquired records** before bot exclusions. Only anonymous aggregates and request provenance are published: no authors, post IDs, titles, or bodies.
 
 ```sh
 # Acquire a rolling seven-day interval and regenerate timezone summaries.
+# For a smaller default-only update: STARTER_COMMUNITIES=funny STARTER_DAYS=3 npm run starter
 npm run starter
 
 # Choose an inclusive end date; the start is six calendar days earlier.

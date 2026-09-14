@@ -9,3 +9,5 @@
 - No individual-user tracking features. Author identifiers may be used transiently to compute distinct counts; cache only anonymous aggregates and redacted public post evidence in the browser.
 
 - First visits render the embedded aggregate summary; returning visits restore saved analysis. Never acquire archive records or poll source freshness on page load or an idle timer. Acquisition requires a changed analysis selection or an explicit Refresh/Retry/Load supporting posts action.
+
+- Reuse saved timezone summaries without source or freshness requests. Keep distinct-participant counts exact without persisting author identities or hashes. Only explicit refresh replaces complete cached coverage; missing boundary summaries may require adjacent UTC source coverage.

@@ -322,7 +322,7 @@ test("failed comments never mark a post-only day complete or write its cache", a
   );
   assert.equal(writes, 0);
 });
-test("recent caches expire independently; older complete days are reused", async () => {
+test("saved timezone summaries persist until an explicit refresh", async () => {
   const now = Date.parse("2026-08-04T12:00:00Z"),
     map = new Map();
   let calls = 0;
@@ -346,12 +346,15 @@ test("recent caches expire independently; older complete days are reused", async
     cache,
   };
   await loadArchive(options);
-  assert.equal(calls, 4);
-  await loadArchive(options);
-  assert.equal(calls, 4);
-  client.now = () => now + 16 * 60000;
+  assert.equal(calls, 6, "three UTC days cover two days plus timezone boundaries");
   await loadArchive(options);
   assert.equal(calls, 6);
+  client.now = () => now + 8 * 86400000;
+  await loadArchive(options);
+  assert.equal(calls, 6, "changing selections never silently expires saved data");
+  await loadArchive({ ...options, force: true });
+  assert.equal(calls, 12);
+
 });
 test("combining missing days fails instead of treating the gap as quiet", () => {
   const make = (date) => {

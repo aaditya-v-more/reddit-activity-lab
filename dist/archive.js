@@ -1,4 +1,5 @@
 import { localParts, median } from "./analysis.js";
+import { availableZones } from "./timezone.js";
 
 export const API = "https://arctic-shift.photon-reddit.com/api";
 export const BOTS = [
@@ -15,8 +16,6 @@ export const LIMITS = {
   records: 200000,
   requests: 350,
   interval: 1000,
-  recentTTL: 15 * 60000,
-  historicalTTL: 7 * 86400000,
 };
 const unknown = new Set(["", "[deleted]", "[removed]"]);
 const numeric = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -125,18 +124,18 @@ export function normalize(record, kind, subreddit) {
         : null,
   };
 }
-export function aggregateDay(rows, { start, end, zone, fetchedAt, ledger }) {
+export function aggregateDay(rows, { start, end, zone, fetchedAt, ledger, parts = localParts }) {
   const cells = new Map(),
     authors = new Set();
   for (let t = start; t < end; t += 1800) {
-    const p = localParts(t, zone);
+    const p = parts(t, zone);
     if (!cells.has(p.hour))
       cells.set(p.hour, [p.date, p.hour, p.day, 0, 0, new Set(), 0]);
     cells.get(p.hour)[6] += Math.min(1800, end - t) / 3600;
   }
   for (const r of rows) {
     if (r.bot || r.t < start || r.t >= end) continue;
-    const p = localParts(r.t, zone),
+    const p = parts(r.t, zone),
       cell = cells.get(p.hour);
     cell[r.kind === "posts" ? 3 : 4]++;
     if (r.author) {
@@ -145,7 +144,7 @@ export function aggregateDay(rows, { start, end, zone, fetchedAt, ledger }) {
     }
   }
   const posts = rows.filter((r) => r.kind === "posts").map((r) => r.post);
-  const date = localParts(start, zone).date;
+  const date = parts(start, zone).date;
   return {
     schema: 1,
     start,
@@ -206,7 +205,7 @@ export function combineDays(chunks, subreddit, zone) {
       ? ages.reduce((m, x) => Math.max(m, x), -Infinity)
       : null,
   });
-  const times = chunks.map((c) => c.fetchedAt).sort();
+  const times = chunks.flatMap((c) => [c.fetchedAt, c.fetchedAtMax || c.fetchedAt]).sort();
   return {
     subreddit,
     mode: "on-demand",
@@ -232,7 +231,7 @@ export function combineDays(chunks, subreddit, zone) {
         dailyAuthors: Object.assign({}, ...chunks.map((c) => c.dailyAuthors)),
       },
     },
-    ledger: chunks.flatMap((c) => c.ledger),
+    ledger: [...new Map(chunks.flatMap((c) => c.ledger).map((entry) => [JSON.stringify(entry), entry])).values()],
     freshness: chunks.map((c) => ({
       date: localParts(c.start, zone).date,
       fetchedAt: c.fetchedAt,
@@ -499,59 +498,98 @@ export async function loadArchive({
     throw new Error(
       "Today is still incomplete. Choose a completed day; the archive freshness panel shows recent observations.",
     );
-  const budget = { records: 0, requests: 0 },
-    chunks = [];
+  const budget = { records: 0, requests: 0 }, chunks = [];
+  // Raw identities live only in this acquisition's rolling UTC-day buffer.
+  const utcDays = new Map();
+  const zones = [...new Set([...availableZones(), zone])];
+  const utcToday = Math.floor(client.now() / 86400000) * 86400;
   for (const [i, date] of dates.entries()) {
     if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-    const key = `1|${subreddit.toLowerCase()}|${zone}|${date}`;
-    let chunk = await cache?.get(key);
-    const recent = date >= addDays(today, -3);
-    const ttl = recent ? LIMITS.recentTTL : LIMITS.historicalTTL;
-    if (force || !chunk || client.now() - Date.parse(chunk.fetchedAt) > ttl) {
-      const a = dayStart(date, zone),
-        b = dayStart(addDays(date, 1), zone),
-        ledger = [];
-      const p = (event = {}) =>
-        progress({
-          date,
-          done: i,
-          total: dates.length,
-          ...budget,
-          cached: false,
-          ...event,
-        });
-      p();
-      const options = { signal, budget, ledger, progress: p };
-      const posts = await client.records("posts", subreddit, a, b, options);
-      const comments = await client.records(
-        "comments",
-        subreddit,
-        a,
-        b,
-        options,
-      );
+    const a = dayStart(date, zone), b = dayStart(addDays(date, 1), zone);
+    const tileStart = Math.floor(a / 86400) * 86400;
+    const key = `2|${subreddit.toLowerCase()}|${tileStart}`;
+    const layout = dayLayout(date, zone);
+    let tile = force ? null : await cache?.get(key);
+    let chunk = tile?.variants?.[layout.key];
+    // Old same-zone summaries remain useful until an explicit refresh upgrades them.
+    if (!chunk && !force) chunk = await cache?.get(`1|${subreddit.toLowerCase()}|${zone}|${date}`);
+    if (!chunk) {
+      const p = (event = {}) => progress({ date, done: i, total: dates.length, ...budget, cached: false, ...event });
+      p({ phase: "prepare" });
+      // One adjacent UTC day covers most timezone boundaries. Never prefetch an
+      // unfinished UTC day unless the requested completed local day needs it.
+      const tileEnd = Math.max(b, Math.min(tileStart + 2 * 86400, utcToday));
+      const rows = [], ledger = [], collected = [];
+      for (let t = tileStart; t < tileEnd; t += 86400) {
+        const finish = Math.min(t + 86400, tileEnd);
+        let source = utcDays.get(t);
+        if (!source || source.end < finish) {
+          const sourceLedger = [];
+          const from = source?.end || t;
+          const options = { signal, budget, ledger: sourceLedger, progress: p };
+          const posts = await client.records("posts", subreddit, from, finish, options);
+          const comments = await client.records("comments", subreddit, from, finish, options);
+          source = {
+            end: finish, rows: [...(source?.rows || []), ...posts, ...comments],
+            ledger: [...(source?.ledger || []), ...sourceLedger],
+            fetchedAt: source?.fetchedAt || new Date(client.now()).toISOString(),
+            fetchedAtMax: new Date(client.now()).toISOString(),
+          };
+          utcDays.set(t, source);
+        }
+        for (const row of source.rows) if (row.t < finish) rows.push(row);
+        ledger.push(...source.ledger);
+        collected.push(source.fetchedAt, source.fetchedAtMax);
+      }
       p({ phase: "aggregate" });
-      chunk = aggregateDay([...posts, ...comments], {
-        start: a,
-        end: b,
-        zone,
-        fetchedAt: new Date(client.now()).toISOString(),
-        ledger,
+      tile = buildTimezoneTile(rows, {
+        start: tileStart, end: tileEnd, zones,
+        fetchedAt: collected.sort()[0], fetchedAtMax: collected.at(-1), ledger, signal,
       });
-      await cache?.set(key, chunk);
+      chunk = tile.variants[layout.key];
+      if (!chunk) throw new Error("The requested local day could not be summarized completely.");
+      await cache?.set(key, tile);
+      // Discard author names as soon as their UTC day leaves the rolling window.
+      for (const t of utcDays.keys()) if (t < tileStart) utcDays.delete(t);
     }
+    if (!chunk.posts) chunk = { ...chunk, zone, ledger: tile.ledger, posts: tile.posts.filter((post) => post.t >= a && post.t < b) };
     chunks.push(chunk);
     if (chunks.reduce((sum, c) => sum + c.audit.records, 0) > LIMITS.records)
-      throw new Error(
-        "The selected days exceed the 200,000-record browser limit. Choose a shorter range; completed days remain cached.",
-      );
-    progress({
-      date,
-      done: i + 1,
-      total: dates.length,
-      ...budget,
-      cached: true,
-    });
+      throw new Error("The selected days exceed the 200,000-record browser limit. Choose a shorter range; completed days remain cached.");
+    progress({ date, done: i + 1, total: dates.length, ...budget, cached: true });
   }
-  return combineDays(chunks, subreddit, zone);
+  return { ...combineDays(chunks, subreddit, zone), acquisitionRequests: budget.requests };
+}
+
+// Equal UTC boundaries and local-hour layouts share an anonymous summary,
+// even when multiple IANA names describe that layout. No author hashes persist.
+export function dayLayout(date, zone) {
+  const start = dayStart(date, zone), end = dayStart(addDays(date, 1), zone);
+  const buckets = [];
+  for (let t = start; t < end; t += 900) buckets.push(localParts(t, zone));
+  return {
+    start, end, buckets,
+    key: `${date}|${start}|${end}|${buckets.map((p) => p.hour).join(",")}`,
+  };
+}
+export function buildTimezoneTile(rows, { start, end, zones, fetchedAt, fetchedAtMax = fetchedAt, ledger, signal }) {
+  const variants = {};
+  for (const zone of zones) {
+    if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+    let date = localParts(start, zone).date;
+    if (dayStart(date, zone) < start) date = addDays(date, 1);
+    const layout = dayLayout(date, zone);
+    if (layout.start < start || layout.start >= start + 86400 || layout.end > end || layout.end <= layout.start || variants[layout.key]) continue;
+    const selected = rows.filter((r) => r.t >= layout.start && r.t < layout.end);
+    const chunk = aggregateDay(selected, {
+      start: layout.start, end: layout.end, zone, fetchedAt, ledger: [],
+      parts: (t) => layout.buckets[Math.floor((t - layout.start) / 900)],
+    });
+    // Post evidence and provenance are shared by all variants of this tile.
+    chunk.fetchedAtMax = fetchedAtMax;
+    delete chunk.posts;
+    delete chunk.ledger;
+    variants[layout.key] = chunk;
+  }
+  return { schema: 2, start, end, variants, ledger, posts: rows.filter((r) => r.kind === "posts").map((r) => r.post) };
 }

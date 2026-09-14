@@ -20,14 +20,18 @@ const zones = [
   "Asia/Tokyo",
   "Australia/Sydney",
 ];
-const communities = ["ollama", "ClaudeAI", "ClaudeCode"];
+const communities = (process.env.STARTER_COMMUNITIES || "funny,ollama,ClaudeAI,ClaudeCode").split(",");
 const end =
   process.env.STARTER_END || addDays(new Date().toISOString().slice(0, 10), -1);
-const start = addDays(end, -6);
+const start = addDays(end, 1 - Number(process.env.STARTER_DAYS || 7));
 const lower = Math.min(...zones.map((zone) => dayStart(start, zone)));
 const upper = Math.max(...zones.map((zone) => dayStart(addDays(end, 1), zone)));
 const client = new ArcticClient();
-const entries = [];
+let entries = [];
+try {
+  const previous = JSON.parse(await fs.readFile(path.join(root, "dist/starter/manifest.json"), "utf8"));
+  entries = previous.entries.filter((entry) => !communities.includes(entry.subreddit));
+} catch {}
 await fs.mkdir(path.join(root, "data/starter"), { recursive: true });
 await fs.mkdir(path.join(root, "dist/starter"), { recursive: true });
 for (const subreddit of communities) {

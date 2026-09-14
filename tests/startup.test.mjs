@@ -14,14 +14,14 @@ const app = fs.readFileSync(new URL("../dist/app.js", import.meta.url), "utf8")
   .replaceAll("import.meta.url", '"https://example.test/app.js"');
 const summary = JSON.parse(bootstrap).snapshot;
 const snapshot = (d = summary) => ({
-  dataset: { mode: "on-demand", subreddit: d.subreddit, coverage: d.coverage, audit: d.audit, ledger: d.ledger, posts: [], zones: {} },
+  dataset: { mode: "on-demand", acquisitionRequests: 2, subreddit: d.subreddit, coverage: d.coverage, audit: d.audit, ledger: d.ledger, posts: [], zones: {} },
   analysis: { ...d.result, posts: [], eligible: [] },
 });
 const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(setImmediate); };
 
 // Exercise the actual page controller with browser storage/worker boundaries mocked.
 // No source records, external requests, or browser profile access are needed.
-function page({ saved = null, delayRestore = false, storageError = false, detected = "Asia/Kolkata", preference = null } = {}) {
+function page({ saved = null, delayRestore = false, storageError = false, detected = "Asia/Kolkata", preference = null, acquisitionRequests = 2 } = {}) {
   const elements = new Map(), documentEvents = {}, workerActions = [], http = [], timers = [];
   function element(selector) {
     if (!elements.has(selector)) {
@@ -39,7 +39,7 @@ function page({ saved = null, delayRestore = false, storageError = false, detect
     return elements.get(selector);
   }
   element("#starter-bootstrap").textContent = bootstrap;
-  element("#community").value = "ollama";
+  element("#community").value = "funny";
   element("#timezone").value = "Asia/Kolkata";
   element("#timezone").options = [{ value: "Asia/Kolkata", textContent: "India · IST (UTC+5:30)" }];
   const pendingRestores = [];
@@ -53,8 +53,8 @@ function page({ saved = null, delayRestore = false, storageError = false, detect
       const reply = () => {
         const data = message.action === "restore" && storageError
           ? { id: message.id, error: "Storage unavailable" }
-          : { id: message.id, result: message.action === "restore" ? saved
-            : message.action === "load" ? { dataset: snapshot().dataset, analysis: snapshot().analysis }
+          : { id: message.id, result: message.action === "restore" ? (!message.options || (saved && saved.analysis.zone === message.options.zone && saved.analysis.start === message.options.start && saved.analysis.end === message.options.end) ? saved : null)
+            : message.action === "load" ? { dataset: { ...snapshot().dataset, acquisitionRequests }, analysis: snapshot().analysis }
             : message.action === "pulse" ? { checkedAt: new Date().toISOString() } : true };
         queueMicrotask(() => this.listeners.message({ data }));
       };
@@ -176,4 +176,30 @@ test("manual preference wins over detection and a different saved analysis", asy
   assert.equal(p.element("#timezone").value, "Europe/Berlin");
   assert.match(p.element("#timezone-help").textContent, /Apply filters to analyze in Europe\/Berlin/);
   assert.equal(p.workerActions.filter((x) => x.action === "load").length, 0);
+});
+
+test("changing the bundled starter timezone uses its embedded summary without acquisition or freshness polling", async () => {
+  const p = page(); await flush();
+  p.element("#timezone").value = "America/New_York";
+  p.element("#timezone").listeners.change[0](); await flush();
+  assert.equal(p.element("#timezone").value, "America/New_York");
+  assert.equal(p.element("#load-panel").hidden, true);
+  assert.equal(p.workerActions.some((x) => ["load", "pulse"].includes(x.action)), false);
+  assert.deepEqual(p.http, []);
+});
+test("a local cache calculation never follows up with a source freshness request", async () => {
+  const p = page({ acquisitionRequests: 0 }); await flush();
+  p.element("#start").value = "2026-09-05";
+  p.element("#filters").listeners.submit[0]({ preventDefault() {} }); await flush();
+  assert.equal(p.workerActions.filter((x) => x.action === "load").length, 1);
+  assert.equal(p.workerActions.filter((x) => x.action === "pulse").length, 0);
+});
+
+test("an acquired analysis switches through the reusable cache rather than falling back to an older starter", async () => {
+  const p = page({ saved: snapshot(), acquisitionRequests: 0 }); await flush();
+  p.element("#timezone").value = "America/New_York";
+  p.element("#timezone").listeners.change[0](); await flush();
+  assert.equal(p.workerActions.filter((x) => x.action === "load").length, 1);
+  assert.equal(p.workerActions.filter((x) => x.action === "pulse").length, 0);
+  assert.deepEqual(p.http, []);
 });

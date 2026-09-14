@@ -83,12 +83,17 @@ self.addEventListener("message", async ({ data }) => {
         ? snapshotKey(data.options)
         : await cache.get("@last");
       result = key ? await cache.get(key) : null;
+      if (result && data.options) {
+        const revision = await cache.get(`@revision|${data.options.subreddit.toLowerCase()}`);
+        if (revision && result.cacheRevision !== revision) result = null;
+      }
     } else if (data.action === "remember") {
       const key = snapshotKey({
         subreddit: data.snapshot.dataset.subreddit,
         ...data.snapshot.analysis,
       });
-      result = await cache.set(key, data.snapshot);
+      const cacheRevision = await cache.get(`@revision|${data.snapshot.dataset.subreddit.toLowerCase()}`);
+      result = await cache.set(key, { ...data.snapshot, cacheRevision });
       if (result) await cache.set("@last", key);
     } else if (data.action === "analyze") {
       result = analyze(data.dataset, data.options);
@@ -102,6 +107,8 @@ self.addEventListener("message", async ({ data }) => {
       });
       self.postMessage({ id: data.id, progress: { phase: "analyze" } });
       result = { dataset, analysis: analyze(dataset, data.options) };
+      if (dataset.acquisitionRequests > 0)
+        await cache.set(`@revision|${dataset.subreddit.toLowerCase()}`, `${Date.now()}-${data.id}`);
     } else throw new Error("Unknown archive operation");
     self.postMessage({ id: data.id, result });
   } catch (error) {

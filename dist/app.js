@@ -289,7 +289,7 @@ function liveManifest() {
   return {
     generatedAt: new Date().toISOString(),
     knownBots: BOTS,
-    communities: ["ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name })),
+    communities: ["funny", "ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name })),
     zones: [...$("#timezone").options].map((x) => x.value),
     defaultStart: $("#start").value,
     defaultEnd: $("#end").value,
@@ -299,7 +299,7 @@ const moment = (t) =>
   t == null
     ? "Unavailable"
     : new Date(t * 1000).toLocaleString("en-GB", {
-        timeZone: $("#timezone").value,
+        timeZone: state.result?.zone || $("#timezone").value,
         day: "numeric",
         month: "short",
         hour: "2-digit",
@@ -333,6 +333,16 @@ async function refreshPulse() {
     pulseJob = null;
   }
 }
+function finishCached() {
+  state.loading = false;
+  activeLoad = null;
+  clearInterval(loadingTimer);
+  $("#load-panel").hidden = true;
+  $("#filters button[type=submit]").textContent = "Apply filters";
+  $("#refresh-archive").disabled = false;
+  showSnapshotFreshness();
+  return { ok: true, cached: true };
+}
 async function load(force = false) {
   if (typeof force !== "boolean") force = false;
   if (
@@ -341,8 +351,7 @@ async function load(force = false) {
     state.result.start === $("#start").value && state.result.end === $("#end").value &&
     state.result.zone === $("#timezone").value
   ) {
-    showSnapshotFreshness();
-    return { ok: true, cached: true };
+    return finishCached();
   }
   const ticket = ++load.ticket;
   if (activeLoad) worker.postMessage({ action: "cancel", target: activeLoad });
@@ -353,23 +362,34 @@ async function load(force = false) {
     start: $("#start").value,
     end: $("#end").value,
   };
+  const canUseStarter = !state.data || state.data.mode === "starter" || state.data.subreddit.toLowerCase() !== requested.subreddit.toLowerCase();
   if (state.mode === "archive") {
     const saved = await job("restore", { options: requested }).promise.catch(
       () => null,
     );
     if (ticket !== load.ticket) return;
-    if (saved) adoptSnapshot(saved, false);
-    else if (
+    if (saved) {
+      adoptSnapshot(saved, false);
+      if (!force) {
+        await remember(saved);
+        return finishCached();
+      }
+    }
+    else if (canUseStarter && (
       !state.data ||
       state.data.subreddit.toLowerCase() !==
         requested.subreddit.toLowerCase() ||
       state.result.zone !== requested.zone
-    )
+    ))
       await showStarter(requested.subreddit, requested.zone, true, false).catch(
         () => false,
       );
     if (ticket !== load.ticket) return;
+    if (!force && canUseStarter && state.result?.zone === requested.zone && state.result?.start === requested.start && state.result?.end === requested.end && state.data?.subreddit.toLowerCase() === requested.subreddit.toLowerCase()) {
+      return finishCached();
+    }
   }
+  let acquired = false;
   state.loading = true;
   // Keep the last complete analysis visible until its replacement is ready.
   const previous = state.result
@@ -390,8 +410,8 @@ async function load(force = false) {
   $("#load-panel").hidden = false;
   $("#load-panel").innerHTML = `
     <section class="loading-state" aria-labelledby="loading-title">
-      <div class="loading-heading"><span class="loader" aria-hidden="true"></span><div><h2 id="loading-title">Loading r/${esc($("#community").value)}</h2><p>Acquiring the selected dates and checking score snapshots.</p></div></div>
-      <p class="loading-stage" id="load-stage" role="status">Checking saved days…</p>
+      <div class="loading-heading"><span class="loader" aria-hidden="true"></span><div><h2 id="loading-title">Preparing r/${esc($("#community").value)}</h2><p>Reusing saved summaries and completing missing timezone coverage.</p></div></div>
+      <p class="loading-stage" id="load-stage" role="status">Checking saved timezone summaries…</p>
       <progress class="download-progress" id="load-progress" max="1" value="0" aria-label="Completed days"></progress>
       <div class="loading-meta"><span id="load-detail">0% · Waiting for the first records</span><span id="load-elapsed" aria-live="off">0s elapsed</span></div>
       <div class="loading-actions"><p class="small">First loads can take a few minutes. Each completed day is saved for reuse.</p><button class="button quiet" id="cancel-load">Cancel</button></div>
@@ -446,7 +466,7 @@ async function load(force = false) {
           p.phase === "analyze"
             ? "Calculating activity, score comparisons, and uncertainty…"
             : p.phase === "aggregate"
-              ? `Summarizing ${p.date}…`
+              ? `Preparing reusable timezone summaries for ${p.date}…`
               : p.phase === "retry"
                 ? p.reason === "relay"
                   ? "Direct connection failed. Connecting through the site…"
@@ -458,6 +478,7 @@ async function load(force = false) {
       activeLoad = request.id;
       const response = await request.promise;
       data = response.dataset;
+      acquired = data.acquisitionRequests > 0;
       result = response.analysis;
     }
     if (ticket !== load.ticket) return;
@@ -483,7 +504,7 @@ async function load(force = false) {
       state.manifest.communities = state.manifest.communities
         .filter(
           (c) =>
-            ["ClaudeAI", "ClaudeCode", "ollama"].includes(c.name) ||
+            ["funny", "ClaudeAI", "ClaudeCode", "ollama"].includes(c.name) ||
             state.cache.has(c.name),
         )
         .slice(-9);
@@ -521,7 +542,8 @@ async function load(force = false) {
       $("#filters button[type=submit]").textContent = "Apply filters";
       $("#refresh-archive").disabled = false;
       activeLoad = null;
-      refreshPulse();
+      if (acquired) refreshPulse();
+      else showSnapshotFreshness();
     }
   }
 }
@@ -629,7 +651,7 @@ function starterSnapshot(d) {
   };
 }
 async function showStarter(
-  name = "ollama",
+  name = "funny",
   zone = $("#timezone").value,
   save = true,
   restoreFilters = true,
@@ -668,6 +690,10 @@ async function init() {
       const { manifest, snapshot: fallback, snapshots = [] } = JSON.parse(embedded.textContent);
       const data = snapshots.find((item) => item.result.zone === timezonePreference.zone) || fallback;
       state.starterManifest = manifest;
+      for (const item of snapshots) {
+        const published = manifest.entries.find((entry) => entry.subreddit === item.subreddit && entry.zone === item.result.zone);
+        if (published) state.starterCache.set(published.file, starterSnapshot(item));
+      }
       const snapshot = starterSnapshot(data);
       const entry = manifest.entries.find((item) => item.subreddit === data.subreddit && item.zone === data.result.zone);
       if (entry) state.starterCache.set(entry.file, snapshot);
@@ -678,7 +704,7 @@ async function init() {
   }
   const lastSaved = job("restore", {}).promise.catch(() => null);
   if (!state.result)
-    await showStarter("ollama", $("#timezone").value, false).catch(() => false);
+    await showStarter("funny", $("#timezone").value, false).catch(() => false);
   const saved = await lastSaved;
   if (epoch !== state.selectionEpoch) return;
   if (saved) {
@@ -706,10 +732,10 @@ const communityPicker = createSubredditPicker({
   getKnown: () =>
     (
       state.manifest?.communities ||
-      ["ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name }))
+      ["funny", "ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name }))
     ).map(({ name }) => ({
       name,
-      detail: ["ClaudeAI", "ClaudeCode", "ollama"].includes(name)
+      detail: ["funny", "ClaudeAI", "ClaudeCode", "ollama"].includes(name)
         ? "Starter analysis available"
         : "Previously loaded",
     })),
@@ -817,7 +843,7 @@ async function clearLocalData(button) {
     communityPicker.clearRecent();
     $("#saved-status").textContent =
       "Local analyses cleared. The starter snapshot below is provided with the site.";
-    await showStarter("ollama", $("#timezone").value, false);
+    await showStarter("funny", $("#timezone").value, false);
     $("#load-panel").hidden = true;
   } catch {
     $("#saved-status").textContent =
@@ -923,7 +949,7 @@ function currentMethodology() {
   return `<div class="notice"><strong>An archive-backed study, not a live audience counter.</strong> Recent record timestamps show source freshness. Historical analysis uses completed local days and eligible score snapshots.</div><div class="method-grid">
   <section class="panel prose"><h2>What each metric means</h2><ul><li><strong>Activity:</strong> posts and comments created during the selected interval. Known bots are excluded; captured removed content still contributes to volume.</li><li><strong>Participants:</strong> distinct available authors within a date/hour or local day. Deleted or missing authors are excluded. Counts across hours cannot be added to obtain unique daily people.</li><li><strong>Score:</strong> net voting, not an exact upvote count. No online-user counts, silent readership, weekly visitors, or private views are measured.</li></ul></section>
   <section class="panel prose"><h2>Any covered subreddit, within a bounded interval</h2><p>The browser acquires actual records from Arctic Shift, using the site’s relay when a direct connection fails. No Reddit login is used. A subreddit can be entered even when the provider's infrequently updated discovery directory does not list it.</p><p>Each run is bounded to 93 days, 200,000 records, and 350 source requests. Very busy communities need shorter ranges. Every page must be exhausted before a day's data is used; failed or capped acquisitions never become sampled findings.</p><p>This makes arbitrary communities accessible without hosting an all-Reddit database. It does not establish complete Reddit coverage.</p></section>
-  <section class="panel prose"><h2>Freshness and caching</h2><p>The site opens with an included historical summary or your last saved analysis. Opening the page, switching views, and leaving the tab open do not contact the archive. Change the community, dates, or timezone, or choose “Refresh data”, to request an update. Latest post and comment timestamps are checked after that update.</p><p>Saved analyses stay on this device until cleared. During a requested acquisition, day caches older than 15 minutes for recent dates or seven days for older dates are eligible for refresh; “Refresh data” bypasses them. There is no background polling. The current day is excluded, and archive processing may be delayed. The provider usually refreshes post outcomes roughly 36 hours after creation.</p><p>Oldest included day-cache retrieval: <strong>${moment(Date.parse(d.coverage.fetchedAtMin) / 1000)}</strong>. Newest: <strong>${moment(Date.parse(d.coverage.fetchedAtMax) / 1000)}</strong>, ${esc(zoneLabel())}.</p></section>
+  <section class="panel prose"><h2>Freshness and caching</h2><p>The site opens with an included historical summary or your last saved analysis. Opening the page, switching views, and leaving the tab open do not contact the archive. Change the community, dates, or timezone, or choose “Refresh data”, to request an update. Latest post and comment timestamps are checked only after a network update.</p><p>Saved analyses stay on this device until cleared. Timezone changes reuse anonymous summaries with exact participant counts. Missing boundary blocks may need adjacent source coverage. Older single-timezone caches need a one-time acquisition for other zones. Saved data does not expire automatically; “Refresh data” bypasses it. There is no background polling. The current day is excluded, and archive processing may be delayed. The provider usually refreshes post outcomes roughly 36 hours after creation.</p><p>Oldest included day-cache retrieval: <strong>${moment(Date.parse(d.coverage.fetchedAtMin) / 1000)}</strong>. Newest: <strong>${moment(Date.parse(d.coverage.fetchedAtMax) / 1000)}</strong>, ${esc(zoneLabel())}.</p></section>
   <section class="panel prose"><h2>Comparable outcomes</h2><p>Only posts with a recorded second snapshot age between 35 and 40 hours enter performance comparisons. Removed/deleted, pinned, known-bot, and missing-outcome posts are excluded. Restoration metadata overrides stale initial moderation fields; explicit later removal wins.</p><p>Recent posts without a mature snapshot count toward activity but not performance. Download time is not score measurement time; these are neither final outcomes nor first-24-hour measurements.</p></section>
   <section class="panel prose"><h2>Success and uncertainty</h2><p>Descriptive success is score at or above the rounded-up 75th percentile for eligible posts from that community and selected month, at least 1. Ties can make more than 25% successful.</p><p>The candidate threshold is fitted only on the earlier half and frozen for the later half. Six four-hour windows are compared using the first-half Wilson lower bound; a candidate needs 20 posts per half and four represented weeks. Later-half differences use 1,000 calendar-week bootstrap samples when at least three weeks are available.</p><p>Multiple comparisons, sparse groups, partial weeks, content, topic, flair, moderation, growth, and events limit interpretation. These are observational associations, not promises that changing time causes better results.</p></section>
   <section class="panel prose"><h2>Data footprint and reproducibility</h2><p>${n(d.audit.records)} records acquired: ${n(d.audit.posts)} posts and ${n(d.audit.comments)} comments. ${n(d.audit.knownBotRecords)} known-bot records, ${n(d.audit.unattributedRecords)} records without an attributable author, and ${n(d.audit.removedPosts)} removed/deleted posts. ${n(d.audit.eligiblePosts)} posts have eligible performance measurements.</p><p>Author names exist transiently in the acquisition worker for distinct counting. Only anonymous aggregates, redacted post evidence, request URLs, hashes, and retrieval timestamps are cached in this browser. There are no author timelines or third-party analytics logs. Completed days and analyses are kept until you clear local data. Freshness checks do not delete old data. Persistent storage is requested when supported; browser storage limits, private browsing, or clearing site data can still remove it. If space runs out, existing analyses are kept and a save warning is shown.</p><button class="button quiet" id="download-provenance">Download request provenance</button> <button class="button quiet" id="clear-browser-cache">Clear browser cache</button></section>
