@@ -20,13 +20,13 @@ const zones = [
   "Asia/Tokyo",
   "Australia/Sydney",
 ];
-const communities = (process.env.STARTER_COMMUNITIES || "funny,ollama,ClaudeAI,ClaudeCode").split(",");
+const communities = (process.env.STARTER_COMMUNITIES || "AskReddit").split(",");
 const end =
   process.env.STARTER_END || addDays(new Date().toISOString().slice(0, 10), -1);
-const start = addDays(end, 1 - Number(process.env.STARTER_DAYS || 7));
+const start = addDays(end, 1 - Number(process.env.STARTER_DAYS || 1));
 const lower = Math.min(...zones.map((zone) => dayStart(start, zone)));
 const upper = Math.max(...zones.map((zone) => dayStart(addDays(end, 1), zone)));
-const client = new ArcticClient();
+const client = new ArcticClient({ interval: 500 });
 let entries = [];
 try {
   const previous = JSON.parse(await fs.readFile(path.join(root, "dist/starter/manifest.json"), "utf8"));
@@ -46,39 +46,48 @@ for (const subreddit of communities) {
       saved = JSON.parse(await fs.readFile(cachePath, "utf8"));
   } catch {}
   if (!saved) {
-    const ledger = [],
-      budget = { requests: 0, records: 0 };
-    const options = {
-      ledger,
-      budget,
-      progress: (p) => {
-        if (p.records)
-          console.log(
-            `${subreddit}: ${p.records} records / ${p.requests} requests`,
-          );
-      },
-    };
-    const posts = await client.records(
-      "posts",
-      subreddit,
-      lower,
-      upper,
-      options,
-    );
-    const comments = await client.records(
-      "comments",
-      subreddit,
-      lower,
-      upper,
-      options,
-    );
-    saved = {
-      rows: [...posts, ...comments],
-      ledger,
-      fetchedAt: new Date().toISOString(),
-    };
+    const rows = [], ledger = [];
+    const cachedSections = (await fs.readdir(path.join(root, "data/starter")))
+      .filter((file) => file.startsWith(`${subreddit}-utc-`) && file.endsWith(".json"))
+      .map((file) => file.slice(`${subreddit}-utc-`.length, -5).split("-").map(Number));
+    // The offline generator completes bounded UTC sections independently. Save
+    // each section so a later source failure never discards completed work.
+    for (let a = lower; a < upper;) {
+      let b = Math.min((Math.floor(a / 86400) + 1) * 86400, a + 2 * 3600, upper);
+      if (!process.argv.includes("--refresh")) {
+        const completed = cachedSections.filter(([from, to]) => from === a && to > a && to <= upper).sort((x, y) => y[1] - x[1])[0];
+        if (completed) b = completed[1];
+      }
+      const sectionPath = path.join(root, "data/starter", `${subreddit}-utc-${a}-${b}.json`);
+      let section;
+      try {
+        if (!process.argv.includes("--refresh")) section = JSON.parse(await fs.readFile(sectionPath, "utf8"));
+      } catch {}
+      if (!section) {
+        const sectionLedger = [], budget = { requests: 0, records: 0 };
+        const options = {
+          ledger: sectionLedger, budget,
+          progress: (p) => {
+            if (p.records) console.log(`${subreddit}: ${rows.length + p.records} records / ${ledger.length + p.requests} requests`);
+          },
+        };
+        const posts = await client.records("posts", subreddit, a, b, options);
+        const comments = await client.records("comments", subreddit, a, b, options);
+        section = { rows: [...posts, ...comments], ledger: sectionLedger, fetchedAt: new Date().toISOString() };
+        await fs.writeFile(sectionPath, JSON.stringify(section));
+      }
+      for (const row of section.rows) rows.push(row);
+      ledger.push(...section.ledger);
+      if (rows.length > 500000) throw new Error("Offline starter exceeds 500,000 records. Choose a smaller interval.");
+      console.log(`${subreddit}: saved complete UTC section ${new Date(a * 1000).toISOString()}–${new Date(b * 1000).toISOString()}`);
+      a = b;
+    }
+    saved = { rows, ledger, fetchedAt: new Date().toISOString() };
     await fs.writeFile(cachePath, JSON.stringify(saved));
   }
+  const retrievals = saved.ledger.map((entry) => entry.fetchedAt).filter(Boolean).sort();
+  const fetchedAtMin = retrievals[0] || saved.fetchedAt;
+  const fetchedAtMax = retrievals.at(-1) || saved.fetchedAt;
   for (const zone of zones) {
     const chunks = [];
     for (let date = start; date <= end; date = addDays(date, 1)) {
@@ -87,10 +96,11 @@ for (const subreddit of communities) {
       chunks.push(
         aggregateDay(
           saved.rows.filter((r) => r.t >= a && r.t < b),
-          { start: a, end: b, zone, fetchedAt: saved.fetchedAt, ledger: [] },
+          { start: a, end: b, zone, fetchedAt: fetchedAtMin, ledger: [] },
         ),
       );
     }
+    for (const chunk of chunks) chunk.fetchedAtMax = fetchedAtMax;
     const data = combineDays(chunks, subreddit, zone);
     data.ledger = saved.ledger;
     const result = analyze(data, { start, end, zone });

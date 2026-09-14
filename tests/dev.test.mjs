@@ -24,7 +24,10 @@ test("local preview enables the relay and dispatches the same route contract as 
   assert.match(page.body, /data-archive-relay="true"/);
   const bootstrap = page.body.match(/<script id="starter-bootstrap" type="application\/json">([\s\S]*?)<\/script>/);
   assert.ok(bootstrap, "preview embeds the same starter payload as production");
-  assert.equal(JSON.parse(bootstrap[1]).snapshot.subreddit, "funny");
+  const payload = JSON.parse(bootstrap[1]);
+  assert.equal(payload.snapshot.subreddit, "AskReddit");
+  assert.ok(payload.ledger.length > 0);
+  assert.equal(payload.snapshot.ledger.length, 0, "shared provenance is embedded only once");
   const route = "/archive/posts/search?subreddit=ollama&limit=1";
   const res = response();
   await serve({ method: "GET", url: route }, res);

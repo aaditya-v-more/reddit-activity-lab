@@ -103,6 +103,7 @@ function heatmap() {
     max = Math.max(...r.heat.map((c) => c[key]), 1);
   return `<section class="panel"><div class="panel-head"><div><h2>Activity by day and hour</h2><p>Average ${state.metric === "authors" ? "distinct participants per date/hour" : state.metric + " per hour"}. All times in ${esc(zoneLabel())}.</p></div><div class="segmented" aria-label="Heatmap metric">${["comments", "posts", "authors"].map((m) => `<button data-metric="${m}" class="${state.metric === m ? "active" : ""}" aria-pressed="${state.metric === m}">${m === "authors" ? "Participants" : m[0].toUpperCase() + m.slice(1)}</button>`).join("")}</div></div><p class="scroll-hint">Swipe or use the arrows to explore all 24 hours.</p><div class="heat-paging" aria-label="Heatmap hours"><button class="button quiet" data-heat-scroll="-1" aria-label="Earlier hours" disabled>← Earlier hours</button><button class="button quiet" data-heat-scroll="1" aria-label="Later hours">Later hours →</button></div><div class="heat-scroll" tabindex="0" role="region" aria-label="Hourly activity heatmap, scroll horizontally for all hours"><div class="heatmap"><span></span>${Array.from({ length: 24 }, (_, h) => `<span class="heat-hour">${h % 3 === 0 ? String(h).padStart(2, "0") : ""}</span>`).join("")}${DAYS.map(
     (d, day) =>
+      r.days === 1 && !r.heat.some((cell) => cell.day === day && cell.exposure) ? "" :
       `<span class="heat-day">${d}</span>${r.heat
         .filter((c) => c.day === day)
         .map((c) => {
@@ -124,10 +125,10 @@ function recommendation() {
   const r = state.result,
     w = r.recommendation;
   if (w && w.delta <= 0)
-    return `<section class="panel rec-panel"><div class="panel-head"><div><h2>Posting window to test</h2><p>Based on comment volume in this period.</p></div><span class="rec-icon" aria-hidden="true">↗</span></div><p class="rec-kicker">BUSIEST COMMENT WINDOW</p><div class="rec-time">${windowLabel(r.busiest)}</div><p class="rec-context">Across the week · ${esc(zoneLabel())}</p><div class="rec-figures"><div><b>${n(r.busiest.commentsPerHour)}</b><small>comments per hour</small></div><div><b>${n(r.busiest.postsPerHour)}</b><small>competing posts per hour</small></div></div><div class="rec-rule"></div><p class="rec-context">The early performance candidate (${windowLabel(w)}) did not outperform other windows later. Test this activity window against your usual time.</p><span class="confidence">Activity-led pilot · no confirmed performance gain</span><div><button class="text-button" data-view="performance">Review the evidence →</button></div></section>`;
+    return `<section class="panel rec-panel"><div class="panel-head"><div><h2>Posting window to test</h2><p>Based on comment volume in this period.</p></div><span class="rec-icon" aria-hidden="true">↗</span></div><p class="rec-kicker">BUSIEST COMMENT WINDOW</p><div class="rec-time">${windowLabel(r.busiest)}</div><p class="rec-context">${r.days < 7 ? "During this period" : "Across the week"} · ${esc(zoneLabel())}</p><div class="rec-figures"><div><b>${n(r.busiest.commentsPerHour)}</b><small>comments per hour</small></div><div><b>${n(r.busiest.postsPerHour)}</b><small>competing posts per hour</small></div></div><div class="rec-rule"></div><p class="rec-context">The early performance candidate (${windowLabel(w)}) did not outperform other windows later. Test this activity window against your usual time.</p><span class="confidence">Activity-led pilot · no confirmed performance gain</span><div><button class="text-button" data-view="performance">Review the evidence →</button></div></section>`;
   if (!w)
-    return `<section class="panel rec-panel"><div class="panel-head"><h2>Posting window to test</h2><span class="rec-icon" aria-hidden="true">↗</span></div><p class="rec-kicker">BUSIEST COMMENT WINDOW</p><div class="rec-time">${windowLabel(r.busiest)}</div><p class="rec-context">Across the week · ${esc(zoneLabel())}</p><div class="rec-rule"></div><p class="rec-context">Performance samples are too small to rank reliably. Start with this activity window and compare it with your usual posting time.</p><span class="confidence">Insufficient performance evidence</span></section>`;
-  return `<section class="panel rec-panel"><div class="panel-head"><div><h2>Posting window to test</h2><p>Selected from posts in the earlier half.</p></div><span class="rec-icon" aria-hidden="true">↗</span></div><p class="rec-kicker">SELECTED ON THE FIRST HALF</p><div class="rec-time">${windowLabel(w)}</div><p class="rec-context">Across the week · ${esc(zoneLabel())}</p><div class="rec-figures"><div><b>${pct(w.test.rate)}</b><small>success in the later half</small></div><div><b>${n(w.test.n)}</b><small>later-half eligible posts</small></div></div><div class="rec-rule"></div><p class="rec-context">Other windows: ${pct(w.baseline.rate)} success. ${w.delta > 0 ? "The apparent advantage needs a new test." : "The early signal did not beat other windows later."}</p><span class="confidence">${w.label} · ${w.test.ci.map(pct).join("–")} interval</span><div><button class="text-button" data-view="performance">Review the evidence →</button></div></section>`;
+    return `<section class="panel rec-panel"><div class="panel-head"><h2>Posting window to test</h2><span class="rec-icon" aria-hidden="true">↗</span></div><p class="rec-kicker">BUSIEST COMMENT WINDOW</p><div class="rec-time">${windowLabel(r.busiest)}</div><p class="rec-context">${r.days < 7 ? "During this period" : "Across the week"} · ${esc(zoneLabel())}</p><div class="rec-rule"></div><p class="rec-context">Performance samples are too small to rank reliably. Start with this activity window and compare it with your usual posting time.</p><span class="confidence">Insufficient performance evidence</span></section>`;
+  return `<section class="panel rec-panel"><div class="panel-head"><div><h2>Posting window to test</h2><p>Selected from posts in the earlier half.</p></div><span class="rec-icon" aria-hidden="true">↗</span></div><p class="rec-kicker">SELECTED ON THE FIRST HALF</p><div class="rec-time">${windowLabel(w)}</div><p class="rec-context">${r.days < 7 ? "During this period" : "Across the week"} · ${esc(zoneLabel())}</p><div class="rec-figures"><div><b>${pct(w.test.rate)}</b><small>success in the later half</small></div><div><b>${n(w.test.n)}</b><small>later-half eligible posts</small></div></div><div class="rec-rule"></div><p class="rec-context">Other windows: ${pct(w.baseline.rate)} success. ${w.delta > 0 ? "The apparent advantage needs a new test." : "The early signal did not beat other windows later."}</p><span class="confidence">${w.label} · ${w.test.ci.map(pct).join("–")} interval</span><div><button class="text-button" data-view="performance">Review the evidence →</button></div></section>`;
 }
 function trend() {
   const r = state.result,
@@ -141,6 +142,10 @@ function trend() {
       )
       .join(" ");
   const peak = [...r.daily].sort((a, b) => b.comments - a.comments)[0];
+  if (r.daily.length === 1) {
+    const day = r.daily[0];
+    return `<section class="panel"><div class="panel-head"><div><h2>A day of conversations</h2><p>${shortDate(day.date)} · ${esc(zoneLabel())}</p></div></div><div class="stat-number">${n(day.comments)}</div><p>Comments across ${n(day.posts)} posts, with ${n(day.authors)} distinct participants.</p><p class="small">The hourly heatmap shows activity within this day. Select more dates to compare daily trends.</p></section>`;
+  }
   return `<section class="panel"><div class="panel-head"><div><h2>Conversations over time</h2><p>Daily comment volume · peaks can reflect releases, news, or a single popular thread.</p></div><div class="chart-key"><span><i class="key-line"></i>Comments</span></div></div><svg class="chart" preserveAspectRatio="none" viewBox="0 0 ${W} ${H + 10}" role="img" aria-label="Daily comments from ${r.start} to ${r.end}; highest ${n(peak.comments)} on ${peak.date}"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f18963" stop-opacity=".18"/><stop offset="100%" stop-color="#f18963" stop-opacity="0"/></linearGradient></defs>${[0, 0.5, 1].map((v) => `<line x1="0" x2="${W}" y1="${H - v * (H - 12)}" y2="${H - v * (H - 12)}" stroke="var(--line)" stroke-dasharray="3 5"/><text x="0" y="${H - v * (H - 12) - 4}" fill="var(--muted)" font-size="10">${n(Math.round(v * max))}</text>`).join("")}<polygon points="0,${H} ${points} ${W},${H}" fill="url(#area)"/><polyline points="${points}" fill="none" stroke="#eb7447" stroke-width="2.5" stroke-linejoin="round"/>${r.daily.map((d, i) => `<circle cx="${(i / (r.daily.length - 1 || 1)) * W}" cy="${H - (d.comments / max) * (H - 12)}" r="4" fill="transparent"><title>${d.date}: ${n(d.comments)} comments, ${n(d.posts)} posts, ${n(d.authors)} participants</title></circle>`).join("")}</svg><div class="chart-labels">${[0, Math.floor(r.daily.length / 3), Math.floor((r.daily.length * 2) / 3), r.daily.length - 1].map((i) => `<span>${shortDate(r.daily[i].date)}</span>`).join("")}</div><div class="insight-note"><span aria-hidden="true">↗</span><span><strong>${shortDate(peak.date)} was the busiest day</strong> with ${n(peak.comments)} comments. Compare weekly patterns before treating a spike as a posting rule.</span></div><details><summary>Accessible daily values</summary><div class="table-scroll"><table><thead><tr><th>Date</th><th>Comments</th><th>Posts</th><th>Distinct participants</th></tr></thead><tbody>${r.daily.map((d) => `<tr><td>${d.date}</td><td>${n(d.comments)}</td><td>${n(d.posts)}</td><td>${n(d.authors)}</td></tr>`).join("")}</tbody></table></div></details></section>`;
 }
 function overview() {
@@ -204,7 +209,7 @@ function render() {
     return;
   }
   $("#status").innerHTML =
-    `<span class="coverage-icon" aria-hidden="true">◷</span><span><strong>${shortDate(r.start)} – ${shortDate(r.end)} ${r.end.slice(0, 4)}</strong> · ${r.days} complete local days · Arctic Shift archive · ${["on-demand", "starter"].includes(state.data.mode) ? `${state.data.mode === "starter" ? "Starter snapshot · " : ""}Fetched ${moment(Date.parse(state.data.coverage.fetchedAtMin) / 1000)}–${moment(Date.parse(state.data.coverage.fetchedAtMax) / 1000)} · ` : ""} ${r.clippedDays ? `${r.clippedDays} uncovered or partial days excluded` : "Known bots excluded"} · <button class="text-button" data-view="methodology">View coverage</button></span>`;
+    `<span class="coverage-icon" aria-hidden="true">◷</span><span><strong>${shortDate(r.start)} – ${shortDate(r.end)} ${r.end.slice(0, 4)}</strong> · ${r.days} complete local day${r.days === 1 ? "" : "s"} · Arctic Shift archive · ${["on-demand", "starter"].includes(state.data.mode) ? `${state.data.mode === "starter" ? "Starter snapshot · " : ""}Fetched ${moment(Date.parse(state.data.coverage.fetchedAtMin) / 1000)}–${moment(Date.parse(state.data.coverage.fetchedAtMax) / 1000)} · ` : ""} ${r.clippedDays ? `${r.clippedDays} uncovered or partial days excluded` : "Known bots excluded"} · <button class="text-button" data-view="methodology">View coverage</button></span>`;
   $("#content").innerHTML =
     state.view === "overview"
       ? overview()
@@ -289,7 +294,7 @@ function liveManifest() {
   return {
     generatedAt: new Date().toISOString(),
     knownBots: BOTS,
-    communities: ["funny", "ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name })),
+    communities: ["AskReddit", "ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name })),
     zones: [...$("#timezone").options].map((x) => x.value),
     defaultStart: $("#start").value,
     defaultEnd: $("#end").value,
@@ -504,7 +509,7 @@ async function load(force = false) {
       state.manifest.communities = state.manifest.communities
         .filter(
           (c) =>
-            ["funny", "ClaudeAI", "ClaudeCode", "ollama"].includes(c.name) ||
+            ["AskReddit", "ClaudeAI", "ClaudeCode", "ollama"].includes(c.name) ||
             state.cache.has(c.name),
         )
         .slice(-9);
@@ -651,7 +656,7 @@ function starterSnapshot(d) {
   };
 }
 async function showStarter(
-  name = "funny",
+  name = "AskReddit",
   zone = $("#timezone").value,
   save = true,
   restoreFilters = true,
@@ -687,14 +692,15 @@ async function init() {
   const embedded = $("#starter-bootstrap");
   if (embedded) {
     try {
-      const { manifest, snapshot: fallback, snapshots = [] } = JSON.parse(embedded.textContent);
+      const { manifest, snapshot: fallback, snapshots = [], ledger = [] } = JSON.parse(embedded.textContent);
+      const embeddedSnapshot = (item) => starterSnapshot({ ...item, ledger: item.ledger?.length ? item.ledger : ledger });
       const data = snapshots.find((item) => item.result.zone === timezonePreference.zone) || fallback;
       state.starterManifest = manifest;
       for (const item of snapshots) {
         const published = manifest.entries.find((entry) => entry.subreddit === item.subreddit && entry.zone === item.result.zone);
-        if (published) state.starterCache.set(published.file, starterSnapshot(item));
+        if (published) state.starterCache.set(published.file, embeddedSnapshot(item));
       }
-      const snapshot = starterSnapshot(data);
+      const snapshot = embeddedSnapshot(data);
       const entry = manifest.entries.find((item) => item.subreddit === data.subreddit && item.zone === data.result.zone);
       if (entry) state.starterCache.set(entry.file, snapshot);
       adoptSnapshot(snapshot);
@@ -704,10 +710,11 @@ async function init() {
   }
   const lastSaved = job("restore", {}).promise.catch(() => null);
   if (!state.result)
-    await showStarter("funny", $("#timezone").value, false).catch(() => false);
+    await showStarter("AskReddit", $("#timezone").value, false).catch(() => false);
   const saved = await lastSaved;
   if (epoch !== state.selectionEpoch) return;
-  if (saved) {
+  // Replace only the retired bundled starter, never a downloaded analysis.
+  if (saved && !(saved.dataset.mode === "starter" && saved.dataset.subreddit.toLowerCase() === "funny")) {
     adoptSnapshot(saved);
     selectZone(timezonePreference.zone);
     timezoneHint();
@@ -732,10 +739,10 @@ const communityPicker = createSubredditPicker({
   getKnown: () =>
     (
       state.manifest?.communities ||
-      ["funny", "ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name }))
+      ["AskReddit", "ClaudeAI", "ClaudeCode", "ollama"].map((name) => ({ name }))
     ).map(({ name }) => ({
       name,
-      detail: ["funny", "ClaudeAI", "ClaudeCode", "ollama"].includes(name)
+      detail: ["AskReddit", "ClaudeAI", "ClaudeCode", "ollama"].includes(name)
         ? "Starter analysis available"
         : "Previously loaded",
     })),
@@ -843,7 +850,7 @@ async function clearLocalData(button) {
     communityPicker.clearRecent();
     $("#saved-status").textContent =
       "Local analyses cleared. The starter snapshot below is provided with the site.";
-    await showStarter("funny", $("#timezone").value, false);
+    await showStarter("AskReddit", $("#timezone").value, false);
     $("#load-panel").hidden = true;
   } catch {
     $("#saved-status").textContent =

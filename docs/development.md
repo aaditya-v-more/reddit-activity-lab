@@ -87,21 +87,23 @@ The source adapter is replaceable. Map score measurement timestamps only when th
 
 ## Regenerate starter summaries
 
-The default r/funny summary covers **10–12 September 2026**, including 11,364 records before bot exclusions in IST. Additional starter summaries cover **6–12 September 2026** for r/ollama, r/ClaudeAI, and r/ClaudeCode in eight bundled timezones. The three IST summaries represent **36,610 acquired records** before bot exclusions. Only anonymous aggregates and request provenance are published: no authors, post IDs, titles, or bodies.
+The default r/AskReddit summary covers **12 September 2026**. Its IST analysis includes 153,935 records before bot exclusions: 5,262 posts and 148,673 comments. Additional starter summaries cover **6–12 September 2026** for r/ollama, r/ClaudeAI, and r/ClaudeCode in eight bundled timezones. The three IST summaries represent **36,610 acquired records** before bot exclusions. Only anonymous aggregates and request provenance are published: no authors, post IDs, titles, or bodies.
 
 ```sh
-# Acquire a rolling seven-day interval and regenerate timezone summaries.
-# For a smaller default-only update: STARTER_COMMUNITIES=funny STARTER_DAYS=3 npm run starter
+# Acquire one completed day for the default r/AskReddit summary.
 npm run starter
 
-# Choose an inclusive end date; the start is six calendar days earlier.
+# Choose the completed day. STARTER_DAYS can expand the interval.
 STARTER_END=2026-09-12 npm run starter
+
+# Refresh the original smaller communities over seven days.
+STARTER_COMMUNITIES=ollama,ClaudeAI,ClaudeCode STARTER_DAYS=7 npm run starter
 
 # Bypass the generator's local acquisition cache.
 npm run starter -- --refresh
 ```
 
-The generator shares the on-demand normalizer, timezone boundaries, and statistics. Raw normalized responses stay under ignored `data/starter/`; publishable summaries live in `dist/starter/`. The website displays the snapshot period and acquisition dates, keeping the summary visible while an update runs or the source is unavailable.
+The generator shares the on-demand normalizer, timezone boundaries, and statistics. The offline generator saves complete UTC sections of at most two hours under ignored `data/starter/` so retries reuse completed work. It caps the combined starter at 500,000 records; the browser retains its separate 200,000-record limit. Raw normalized responses stay under ignored `data/starter/`; publishable summaries live in `dist/starter/`. The website displays the snapshot period and acquisition dates, keeping the summary visible while an update runs or the source is unavailable.
 
 ## Verification
 

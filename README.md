@@ -27,7 +27,7 @@ JavaScript · Web Workers · IndexedDB · Python · SQLite · Vercel
 - **See when activity happens.** Compare comment, post, and distinct-participant heatmaps, trends, and competing submissions.
 - **Compare post outcomes.** Inspect median score, median comments, success rates, sample sizes, and uncertainty by submission window.
 - **Plan a posting experiment.** Follow recommendations back to their evidence and inspect the supporting posts.
-- **Pick up where you left off.** The page opens with a dated r/funny summary and restores your last saved analysis. Timezone changes reuse saved summaries; missing coverage and explicit refreshes acquire data. Refresh, cancel, retry, or clear local data.
+- **Pick up where you left off.** The page opens with a dated r/AskReddit summary and restores your last saved analysis. Timezone changes reuse saved summaries; missing coverage and explicit refreshes acquire data. Refresh, cancel, retry, or clear local data.
 
 Device timezone detection with a remembered manual override, automatic light/dark mode, and a manual theme switch. The dropdown includes 400+ IANA timezones with regional daylight-saving rules; eight timezone variants of the starter summary are included. On phones, bottom navigation, expandable filters, and post evidence cards keep the dashboard usable at small widths.
 
@@ -65,7 +65,7 @@ flowchart LR
   P --> S
 ```
 
-Acquisition deduplicates records, retains request hashes and timestamps, and rejects incomplete intervals. The same statistical engine powers the dashboard, tests, and reports. **73 tests run without downloaded records**, with an additional integration test for local study exports. Coverage includes pagination, IST/DST boundaries, cache recovery, confidence intervals, and temporal selection leakage.
+Acquisition deduplicates records, retains request hashes and timestamps, and rejects incomplete intervals. The same statistical engine powers the dashboard, tests, and reports. **74 tests run without downloaded records**, with an additional integration test for local study exports. Coverage includes pagination, IST/DST boundaries, cache recovery, confidence intervals, and temporal selection leakage.
 
 The frontend has **zero runtime npm dependencies**. Analysis runs in a worker; a scoped Vercel relay handles failed direct archive connections. Raw datasets and credentials stay out of Git and deployed assets.
 

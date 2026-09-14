@@ -39,7 +39,7 @@ function page({ saved = null, delayRestore = false, storageError = false, detect
     return elements.get(selector);
   }
   element("#starter-bootstrap").textContent = bootstrap;
-  element("#community").value = "funny";
+  element("#community").value = "AskReddit";
   element("#timezone").value = "Asia/Kolkata";
   element("#timezone").options = [{ value: "Asia/Kolkata", textContent: "India · IST (UTC+5:30)" }];
   const pendingRestores = [];
@@ -202,4 +202,11 @@ test("an acquired analysis switches through the reusable cache rather than falli
   assert.equal(p.workerActions.filter((x) => x.action === "load").length, 1);
   assert.equal(p.workerActions.filter((x) => x.action === "pulse").length, 0);
   assert.deepEqual(p.http, []);
+});
+
+test("the superseded funny starter switches to the new default without an archive request", async () => {
+  const old = snapshot(); old.dataset.mode = "starter"; old.dataset.subreddit = "funny";
+  const p = page({ saved: old }); await flush();
+  assert.equal(p.element("#community").value, "AskReddit");
+  assert.equal(p.workerActions.some((x) => ["load", "pulse"].includes(x.action)), false);
 });

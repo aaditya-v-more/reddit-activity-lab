@@ -90,4 +90,10 @@ Regression checks compare cached results with direct aggregation of synthetic so
 
 ### Default community
 
-r/funny is the default for new visits. Its 10–12 September 2026 IST summary contains 11,364 archived records: 510 posts and 10,854 comments before bot exclusions (10,635 comments after exclusions). Of the posts, 52 meet the 35–40-hour snapshot eligibility rule. The UTC boundary buffer across eight timezone variants contains 13,325 records, acquired on 14 September 2026. The longer request failed and was not published; the complete three-day request exhausted all pages. Existing saved analyses still restore on returning visits.
+The previous default was r/funny. Its 10–12 September 2026 IST summary contains 11,364 archived records: 510 posts and 10,854 comments before bot exclusions (10,635 comments after exclusions). Of the posts, 52 meet the 35–40-hour snapshot eligibility rule. The UTC boundary buffer across eight timezone variants contains 13,325 records, acquired on 14 September 2026. The longer request failed and was not published; the complete three-day request exhausted all pages. Existing saved analyses still restore on returning visits.
+
+### AskReddit default
+
+r/AskReddit replaces r/funny as the published default. The 12 September 2026 IST summary contains 153,935 records before bot exclusions: 5,262 posts and 148,673 comments. The displayed activity excludes 713 known-bot comments. There are 76,031 distinct participants and 2,797 posts eligible for the 35–40-hour performance comparison. The eight-zone acquisition buffer contains 275,543 records, acquired in 21 complete UTC sections, with source requests recorded from 14:06 through 14:32 UTC on 14 September.
+
+Combined requests exceeded the original per-acquisition guard, so the offline generator now saves bounded two-hour sections and resumes completed sections. No partial data from failed attempts was published. Browser limits are unchanged. The initial HTML shares the source ledger across all eight timezone variants. Tests verify migration from the retired bundled starter without archive requests, plus reconciliation and privacy checks for every published summary.
